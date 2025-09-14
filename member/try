@@ -1,0 +1,25 @@
+    <?php include 'includes/header.php'; ?>
+    <?php include 'includes/sidebar.php'; ?>
+
+        <script>
+        // Sidebar toggle for mobile
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('show');
+        }
+
+        // Sidebar auto-close on outside click (mobile)
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const hamburger = document.querySelector('.hamburger-btn');
+            if(window.innerWidth <= 992 && sidebar.classList.contains('show')) {
+                if (!sidebar.contains(event.target) && event.target !== hamburger) {
+                    sidebar.classList.remove('show');
+                }
+            }
+        });
+        // Prevent closing on hamburger click
+        document.querySelector('.hamburger-btn').addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    </script>
