@@ -1,0 +1,194 @@
+/* ========== GLOBAL ========== */
+body {
+    font-family: 'Roboto', Arial, sans-serif;
+    background-color: #f8f9fa;
+    padding: 16px; /* ⬅️ Adds spacing on all sides of the page */
+}
+
+/* ========== HEADER ========== */
+header {
+    background-color: #064d00 !important;
+    box-shadow: 0 2px 8px rgba(24,186,21,0.06);
+}
+header.navbar {
+    padding: 12px 24px;         /* panloob na space sa loob ng green bar */
+    border-radius: 12px;        /* para magmukhang card */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.custom-green {
+    background-color: #064d00 !important;
+}
+
+
+.navbar-toggler {
+    padding: 4px 6px;
+    border: none;
+    outline: none;
+}
+.navbar-toggler:focus {
+    box-shadow: none;
+}
+
+/* Logo + Text Styling */
+.navbar-brand img {
+    height: 44px;
+    width: 44px;
+    object-fit: contain;
+    padding: 2px;
+}
+.navbar-brand .text-block {
+    line-height: 1.1;
+}
+.univ-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+}
+.univ-subtitle {
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #e6f9ea;
+}
+/* Navbar links */
+.navbar-nav {
+    gap: 10px;
+    margin-right: 16px; /* ✅ Adds space from right edge */
+}
+.navbar-nav .nav-link {
+    color: #fff !important;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-left: 10px;
+    transition: color 0.2s;
+}
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link.active,
+.navbar-nav .nav-link:focus {
+    color: #e6f9ea !important;
+}
+
+/* Default navbar-collapse style (desktop) */
+.navbar-collapse {
+    padding: 0;
+}
+
+/* ========== RESPONSIVE: NAV COLLAPSE ON SMALL SCREENS ========== */
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        background-color: #18BA15;
+        padding: 12px 16px;
+        border-radius: 0 0 12px 12px;
+        margin-top: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .navbar-nav {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .navbar-nav .nav-link {
+        padding: 10px 0;
+        font-size: 1.05rem;
+    }
+
+    .navbar-brand,
+    .d-flex.align-items-start {
+        flex-grow: 1;
+        flex-wrap: nowrap;
+    }
+
+    .navbar-toggler {
+        margin-left: auto;
+    }
+}
+
+/* ========== HERO SECTION ========== */
+.hero-section {
+    color: #222;
+    padding: 70px 0 60px 0;
+    text-align: center;
+    background: #fff;
+}
+.hero-section h1 {
+    font-weight: 700;
+    font-size: 2.8rem;
+    margin-bottom: 18px;
+}
+.hero-section p {
+    font-size: 1.3rem;
+}
+
+/* ========== BUTTONS ========== */
+/* Default state for .btn-primary */
+.btn-primary {
+    color: #ffffff !important;
+    background-color: #064d00 !important;
+    border-color: #064d00 !important;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Hover state */
+.btn-primary:hover {
+    background-color: #ffffff !important;
+    color: #064d00 !important;
+    border-color: #064d00 !important;
+}
+
+
+/* ========== FEATURES SECTION ========== */
+/* Interactive hover effect for feature cards */
+.interactive-card {
+    background: #fff;
+    border-radius: 16px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.interactive-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 20px rgba(6, 77, 0, 0.2); /* dark green shadow */
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    background: #064d00;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    transition: background-color 0.3s ease;
+}
+
+.feature-icon:hover {
+    background-color: #043c00;
+}
+
+
+/* ========== FOOTER ========== */
+footer {
+    background: #064d00;
+    color: #fff;
+    padding: 15px 0 10px 0;
+    text-align: center;
+    font-size: 1rem;
+    margin-top: 40px;
+}
+
+/* ========== RESPONSIVE TWEAKS ========== */
+@media (max-width: 991.98px) {
+    .hero-section h1 {
+        font-size: 2.2rem;
+    }
+    .features-section {
+        padding: 35px 0;
+    }
+    .feature-card {
+        padding: 20px 12px;
+    }
+}
