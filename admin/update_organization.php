@@ -112,9 +112,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Send email only if email changed
         if ($email_changed && str_ends_with($adviser_email, '@cbsua.edu.ph')) {
-            require_once '../phpmailer/src/PHPMailer.php';
-            require_once '../phpmailer/src/SMTP.php';
-            require_once '../phpmailer/src/Exception.php';
+                require_once __DIR__ . '/../phpmailer/src/PHPMailer.php';
+                require_once __DIR__ . '/../phpmailer/src/SMTP.php';
+                require_once __DIR__ . '/../phpmailer/src/Exception.php';
 
             $mail = new PHPMailer(true);
             try {
@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mail->setFrom('joshua.lerin@cbsua.edu.ph', 'SWKS Coordinator');
                 $mail->addAddress($adviser_email, $adviser_name);
 
-                $link = "localhost/swks/activate.php?id={$adviser_user_id}";
+                $link = "https://swks-organization.com/activate.php?id={$adviser_user_id}";
 
                 $mail->isHTML(true);
                 $mail->Subject = 'SWKS Adviser Account Setup';
