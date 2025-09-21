@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $adviser_email = trim($_POST['adviser_email'] ?? '');
 
     // ✅ Institutional email validation (applies to all cases)
-    if (!str_ends_with($adviser_email, '@cbsua.edu.ph')) {
+    if (!preg_match('/@cbsua\.edu\.ph$/i', $adviser_email)) {
         echo "<script>
             alert('Only institutional emails ending in @cbsua.edu.ph are allowed.');
             window.history.back();
@@ -116,10 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name_changed = true;
         }
 
-        // Send email only if email changed
         // Send when adviser is newly created OR email changed
-$shouldSend = ($adviserRes->num_rows === 0) || $email_changed;
-if ($shouldSend && str_ends_with($adviser_email, '@cbsua.edu.ph')) {
+            $shouldSend = ($adviserRes->num_rows === 0) || $email_changed;
+            if ($shouldSend && preg_match('/@cbsua\.edu\.ph$/i', $adviser_email)) {
+
 
                 require_once __DIR__ . '/../phpmailer/src/PHPMailer.php';
                 require_once __DIR__ . '/../phpmailer/src/SMTP.php';
@@ -134,10 +134,9 @@ if ($shouldSend && str_ends_with($adviser_email, '@cbsua.edu.ph')) {
                 $mail->Password = 'drdjfeavapsxuact'; // Replace with Gmail App Password
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port = 587;
-                $mail->SMTPDebug = 2; // logs SMTP conversation
-                $mail->Debugoutput = function($str, $level){ error_log("SMTP[$level] $str"); };
+               $mail->SMTPDebug = 2;
+                $mail->Debugoutput = function($str,$level){ error_log("SMTP[$level] $str"); };
                 $mail->CharSet = 'UTF-8';
-
                 $mail->setFrom('joshua.lerin@cbsua.edu.ph', 'SWKS Coordinator');
                 $mail->addAddress($adviser_email, $adviser_name);
 
