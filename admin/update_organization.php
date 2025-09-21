@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mail->Host = 'smtp.gmail.com';
                 $mail->SMTPAuth = true;
                 $mail->Username = 'joshua.lerin@cbsua.edu.ph'; // Replace
-                $mail->Password = 'drdj feav apsx uact'; // Replace with Gmail App Password
+                $mail->Password = 'drdjfeavapsxuact'; // Replace with Gmail App Password
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port = 587;
 
@@ -143,12 +143,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p>If you didn’t expect this, please ignore this email.</p>
                     <br><small>This is an automated message. Do not reply.</small>
                 ";
-                $mail->send();
-            } catch (Exception $e) {
-                error_log("PHPMailer Error: " . $mail->ErrorInfo);
-            }
+              if (!$mail->send()) {
+            error_log('Mailer send() returned false: '.$mail->ErrorInfo);
         }
-
+    } catch (Exception $e) {
+        error_log("PHPMailer Exception: " . $mail->ErrorInfo);
+    }
+}
         echo "<script>
     sessionStorage.setItem('orgEditSuccess', '1');
     window.location.href = 'org_details.php?org_id={$org_id}';
