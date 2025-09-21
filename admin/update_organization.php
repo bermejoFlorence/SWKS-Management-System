@@ -129,13 +129,12 @@ try {
         $ins2->bind_param("iss", $adviser_user_id, $adviser_name, $adviser_email);
         $ins2->execute();
         $ins2->close();
-        $name_changed = true; // first time create → treat as change
+        $name_changed = true; // first-time create → treat as change
     }
 
     /* ---------- 6) Decide if we should send email ---------- */
     $shouldSend = (!$had_adviser) || $email_changed || $name_changed || $org_changed;
 
-    // Log the decision so you can see in Hostinger logs why it did/didn't send
     error_log(sprintf(
         "SWKS update_organization: org_id=%d shouldSend=%s | flags {new=%s, email_changed=%s, name_changed=%s, org_changed=%s} | to=%s",
         $org_id,
@@ -148,66 +147,65 @@ try {
     ));
 
     /* ---------- 7) Send email (with logging) ---------- */
-// 7) Send email (with logging)
-if ($shouldSend && $instEmail) {
-    $p1 = __DIR__ . '/../phpmailer/src/PHPMailer.php';
-    $p2 = __DIR__ . '/../phpmailer/src/SMTP.php';
-    $p3 = __DIR__ . '/../phpmailer/src/Exception.php';
+    if ($shouldSend && $instEmail) {
+        // IMPORTANT: capital P — matches your folder name
+        $p1 = __DIR__ . '/../PHPMailer/src/PHPMailer.php';
+        $p2 = __DIR__ . '/../PHPMailer/src/SMTP.php';
+        $p3 = __DIR__ . '/../PHPMailer/src/Exception.php';
 
-    error_log("SWKS mail: shouldSend=YES, files_exist=".(int)(file_exists($p1)&&file_exists($p2)&&file_exists($p3)));
+        error_log("SWKS mail: shouldSend=YES, files_exist=".(int)(file_exists($p1)&&file_exists($p2)&&file_exists($p3)));
 
-    if (file_exists($p1) && file_exists($p2) && file_exists($p3)) {
-        require_once $p1;
-        require_once $p2;
-        require_once $p3;
+        if (file_exists($p1) && file_exists($p2) && file_exists($p3)) {
+            require_once $p1;
+            require_once $p2;
+            require_once $p3;
 
-        $mail = new PHPMailer(true);
-        try {
-            $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com';
-            $mail->SMTPAuth   = true;
-            $mail->Username   = 'joshua.lerin@cbsua.edu.ph';
-            $mail->Password   = 'drdjfeavapsxuact'; // app password (walang spaces)
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = 587;
-            $mail->CharSet    = 'UTF-8';
+            $mail = new PHPMailer(true);
+            try {
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com';
+                $mail->SMTPAuth   = true;
+                $mail->Username   = 'joshua.lerin@cbsua.edu.ph';
+                $mail->Password   = 'drdjfeavapsxuact'; // Gmail App Password (no spaces)
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
+                $mail->CharSet    = 'UTF-8';
 
-            // DEBUG to error_log:
-            $mail->SMTPDebug  = 2; // ibalik sa 0 pag production na
-            $mail->Debugoutput = function($str, $level){ error_log("PHPMailer[$level] $str"); };
+                // TEMP debugging to error_log (set back to 0 after testing)
+                $mail->SMTPDebug  = 2;
+                $mail->Debugoutput = function($str,$level){ error_log("PHPMailer[$level] $str"); };
 
-            $mail->setFrom('joshua.lerin@cbsua.edu.ph', 'SWKS Coordinator');
-            $mail->addAddress($adviser_email, $adviser_name);
+                $mail->setFrom('joshua.lerin@cbsua.edu.ph', 'SWKS Coordinator');
+                $mail->addAddress($adviser_email, $adviser_name);
 
-            $link = "https://swks-organization.com/activate.php?id={$adviser_user_id}";
+                $link = "https://swks-organization.com/activate.php?id={$adviser_user_id}";
 
-            $mail->isHTML(true);
-            $mail->Subject = 'SWKS Adviser Account Setup';
-            $mail->Body = "
-                <p>Hello <b>".htmlspecialchars($adviser_name,ENT_QUOTES,'UTF-8')."</b>,</p>
-                <p>You have been assigned as an adviser for <b>".htmlspecialchars($org_name,ENT_QUOTES,'UTF-8')."</b> in the SWKS system.</p>
-                <p>Please click the button below to set your account password:</p>
-                <p><a href='{$link}' style='padding:10px 20px; background:#198754; color:#fff; border-radius:6px; text-decoration:none;'>Set Your Password</a></p>
-                <p>If you didn’t expect this, please ignore this email.</p>
-                <br><small>This is an automated message. Do not reply.</small>
-            ";
+                $mail->isHTML(true);
+                $mail->Subject = 'SWKS Adviser Account Setup';
+                $mail->Body = "
+                    <p>Hello <b>".htmlspecialchars($adviser_name,ENT_QUOTES,'UTF-8')."</b>,</p>
+                    <p>You have been assigned as an adviser for <b>".htmlspecialchars($org_name,ENT_QUOTES,'UTF-8')."</b> in the SWKS system.</p>
+                    <p>Please click the button below to set your account password:</p>
+                    <p><a href='{$link}' style='padding:10px 20px; background:#198754; color:#fff; border-radius:6px; text-decoration:none;'>Set Your Password</a></p>
+                    <p>If you didn’t expect this, please ignore this email.</p>
+                    <br><small>This is an automated message. Do not reply.</small>
+                ";
 
-            error_log("SWKS mail: attempting send to {$adviser_email}");
-            if ($mail->send()) {
-                error_log("SWKS mail: SENT OK to {$adviser_email}");
-            } else {
-                error_log("SWKS mail: send() returned false: ".$mail->ErrorInfo);
+                error_log("SWKS mail: attempting send to {$adviser_email}");
+                if ($mail->send()) {
+                    error_log("SWKS mail: SENT OK to {$adviser_email}");
+                } else {
+                    error_log("SWKS mail: send() returned false: ".$mail->ErrorInfo);
+                }
+            } catch (Exception $e) {
+                error_log("PHPMailer Exception: ".$e->getMessage());
             }
-        } catch (Exception $e) {
-            error_log("PHPMailer Exception: ".$e->getMessage());
+        } else {
+            error_log("PHPMailer files missing: $p1 | $p2 | $p3");
         }
     } else {
-        error_log("PHPMailer files missing: $p1 | $p2 | $p3");
+        error_log("SWKS mail: shouldSend=NO (new=".((!$had_adviser)?'YES':'NO').", email_changed=".($email_changed?'YES':'NO').", name_changed=".($name_changed?'YES':'NO').", org_changed=".($org_changed?'YES':'NO').")");
     }
-} else {
-    error_log("SWKS mail: shouldSend=NO (new=".((!$had_adviser)?'YES':'NO').", email_changed=".($email_changed?'YES':'NO').", name_changed=".($name_changed?'YES':'NO').", org_changed=".($org_changed?'YES':'NO').")");
-}
-
 
     /* ---------- 8) Done ---------- */
     echo "<script>sessionStorage.setItem('orgEditSuccess','1'); location.href='org_details.php?org_id={$org_id}';</script>";
