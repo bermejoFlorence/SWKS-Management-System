@@ -210,7 +210,7 @@ if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
         $profile_pic = "uploads/" . ltrim($profile_pic, '/');
     }
     // Final path with /swks/
-    $profile_pic = "/swks/" . ltrim($profile_pic, '/');
+    $profile_pic = "/https://swks-organization.com/" . ltrim($profile_pic, '/');
 }
 ?>
 <img src="<?= htmlspecialchars($profile_pic) ?>"
@@ -247,8 +247,8 @@ if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
                                 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
                                 if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'jfif'])) {
                                     echo '<div class="col-6 col-md-3 d-flex justify-content-center">
-                                            <a href="/swks/'.htmlspecialchars($file).'" class="post-image-link" data-img="/swks/'.htmlspecialchars($file).'">
-                                                <img src="/swks/'.htmlspecialchars($file).'" class="img-fluid rounded shadow-sm post-image-thumb" style="height:130px; object-fit:cover;">
+                                            <a href="/https://swks-organization.com/'.htmlspecialchars($file).'" class="post-image-link" data-img="/https://swks-organization.com/'.htmlspecialchars($file).'">
+                                                <img src="/https://swks-organization.com/'.htmlspecialchars($file).'" class="img-fluid rounded shadow-sm post-image-thumb" style="height:130px; object-fit:cover;">
                                             </a>
                                         </div>';
                                 } else {
@@ -538,7 +538,7 @@ function renderForumPost(post) {
     }
     // Profile pic fallback logic
     let profilePic = post.member_pic || post.adviser_pic || post.coor_pic || 'uploads/default.jpg';
-    if (profilePic && !profilePic.startsWith('http')) profilePic = '/swks/' + profilePic;
+    if (profilePic && !profilePic.startsWith('http')) profilePic = '/https://swks-organization.com/' + profilePic;
 
     // Attachments rendering
     let attachmentHtml = "";
@@ -551,8 +551,8 @@ function renderForumPost(post) {
                 if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
                     attachmentHtml += `
                     <div class="col-6 col-md-3 d-flex justify-content-center">
-                        <a href="/swks/${escapeHtml(file)}" class="post-image-link" data-img="/swks/${escapeHtml(file)}">
-                            <img src="/swks/${escapeHtml(file)}" class="img-fluid rounded shadow-sm post-image-thumb" style="height:130px; object-fit:cover;">
+                        <a href="/https://swks-organization.com/${escapeHtml(file)}" class="post-image-link" data-img="/https://swks-organization.com/${escapeHtml(file)}">
+                            <img src="/https://swks-organization.com/${escapeHtml(file)}" class="img-fluid rounded shadow-sm post-image-thumb" style="height:130px; object-fit:cover;">
                         </a>
                     </div>
                     `;
@@ -560,7 +560,7 @@ function renderForumPost(post) {
                     attachmentHtml += `
                     <div class="col-12 mb-1">
                         <i class="bi bi-paperclip me-1"></i>
-                        <a href="/swks/${escapeHtml(file)}" target="_blank">${file.split('/').pop()}</a>
+                        <a href="/https://swks-organization.com/${escapeHtml(file)}" target="_blank">${file.split('/').pop()}</a>
                     </div>
                     `;
                 }
@@ -632,7 +632,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function fetchNewPosts() {
-    fetch(`/swks/includes/fetch_forum_posts.php?since_id=${latestPostId}`)
+    fetch(`/https://swks-organization.com/includes/fetch_forum_posts.php?since_id=${latestPostId}`)
         .then(res => res.json())
         .then(data => {
             if (data.success && Array.isArray(data.posts) && data.posts.length > 0) {
