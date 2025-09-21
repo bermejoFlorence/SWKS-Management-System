@@ -1,6 +1,12 @@
 <?php
 include_once '../database/db_connection.php';
 
+ini_set('log_errors', 1);
+ini_set('display_errors', 0); // keep hidden sa browser
+error_reporting(E_ALL);
+error_log("HIT update_organization.php ".date('c'));
+
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
@@ -111,7 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Send email only if email changed
-        if ($email_changed && str_ends_with($adviser_email, '@cbsua.edu.ph')) {
+        // Send when adviser is newly created OR email changed
+$shouldSend = ($adviserRes->num_rows === 0) || $email_changed;
+if ($shouldSend && str_ends_with($adviser_email, '@cbsua.edu.ph')) {
+
                 require_once __DIR__ . '/../phpmailer/src/PHPMailer.php';
                 require_once __DIR__ . '/../phpmailer/src/SMTP.php';
                 require_once __DIR__ . '/../phpmailer/src/Exception.php';
@@ -125,6 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mail->Password = 'drdjfeavapsxuact'; // Replace with Gmail App Password
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port = 587;
+                $mail->SMTPDebug = 2; // logs SMTP conversation
+                $mail->Debugoutput = function($str, $level){ error_log("SMTP[$level] $str"); };
+                $mail->CharSet = 'UTF-8';
 
                 $mail->setFrom('joshua.lerin@cbsua.edu.ph', 'SWKS Coordinator');
                 $mail->addAddress($adviser_email, $adviser_name);
@@ -147,8 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log('Mailer send() returned false: '.$mail->ErrorInfo);
         }
     } catch (Exception $e) {
-        error_log("PHPMailer Exception: " . $mail->ErrorInfo);
-    }
+    error_log("PHPMailer Exception: " . $e->getMessage());
+}
 }
         echo "<script>
     sessionStorage.setItem('orgEditSuccess', '1');
