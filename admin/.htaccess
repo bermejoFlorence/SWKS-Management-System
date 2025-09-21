@@ -1,0 +1,7 @@
+RewriteEngine On
+
+# Serve /swks/... as if it were /...
+RewriteRule ^swks/(.*)$ $1 [L,QSA]
+
+# (optional) if someone hits /swks only, send them to /
+RewriteRule ^swks/?$ / [L,R=302]
