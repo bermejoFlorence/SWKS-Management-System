@@ -1,38 +1,41 @@
 :root {
-    --swks-green: #043c00;
-    --swks-green-dark: #186a1a;
-    --swks-green-light: #a8ff9e;
+    /* 🌿 FRESH, MODERN SWKS GREEN PALETTE */
+    --swks-green: #2e7d32;           /* Lively, balanced green (Google Green 700) */
+    --swks-green-dark: #1b5e20;      /* For hover/active — deep but not dead */
+    --swks-green-light: #c8e6c9;     /* Soft mint for backgrounds and accents */
+    --swks-green-accent: #81c784;    /* Vibrant leaf green — for highlights & joy */
+    --swks-green-pale: #e8f5e9;      /* Whisper-soft background green */
+    --text-dark: #263238;            /* Soft dark gray — not pure black */
+    --text-light: #fff;
+    --text-muted: #546e7a;
+    --border-light: #c8e6c9;
+    --shadow-sm: 0 2px 8px rgba(46, 125, 50, 0.08);
+    --shadow-md: 0 6px 20px rgba(46, 125, 50, 0.12);
     --main-font: 'Segoe UI', Arial, sans-serif;
-    --swks-green-accent: #a8ff9e;  /* Logo accent, optional */
 }
 
 body, html {
-    font-family: 'Segoe UI', Arial, sans-serif;
+    font-family: var(--main-font);
     font-size: 1rem;
     background: #f8f9fa;
-    /* Pwede mo pa dagdagan ng line-height, font-weight, etc. */
+    color: var(--text-dark);
+    line-height: 1.6;
 }
-
 
 /* ========== SIDEBAR ========== */
-:root {
-    --swks-green: #043c00;         /* Main sidebar green */
-    --swks-green-dark: #186a1a;    /* Active/hover */
-    --swks-green-accent: #a8ff9e;  /* Logo accent, optional */
-}
-
 .sidebar {
     width: 220px;
-    background: var(--swks-green);
-    color: #fff;
+    background: var(--swks-green-pale); /* Soft, airy background */
+    color: var(--text-dark); /* Dark gray, not white — easier to read */
     height: 100vh;
     position: fixed;
     top: 0;
     left: 0;
     z-index: 1050;
     padding-top: 18px;
-    box-shadow: 2px 0 12px 0 #0002;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.03);
     transition: transform 0.22s;
+    border-right: 1px solid var(--border-light);
 }
 
 .sidebar .logo {
@@ -50,27 +53,26 @@ body, html {
     font-size: 2.15rem;
     font-weight: 700;
     letter-spacing: 2px;
-    color: var(--swks-green-accent);
-    text-shadow: 1px 3px 12px #0007;
-    background: rgba(255,255,255,0.07);
+    color: var(--swks-green); /* Use main green, not neon */
+    text-shadow: none;
+    background: rgba(46, 125, 50, 0.05);
     padding: 8px 30px;
     border-radius: 18px;
-    transition: color 0.2s, box-shadow 0.18s;
+    transition: all 0.2s ease;
     display: inline-block;
 }
 
 .swks-logo-link:hover .swks-logo-text,
 .swks-logo-link:focus .swks-logo-text {
-    color: #fff;
-    text-shadow: 0 2px 15px #26ff7fbb;
-    background: rgba(90,255,160,0.10);
-    filter: brightness(1.15);
+    color: var(--swks-green-dark);
+    background: rgba(46, 125, 50, 0.1);
+    transform: scale(1.03);
     cursor: pointer;
 }
 
 .sidebar ul {
     list-style: none;
-    padding: 0 0 0 0;
+    padding: 0;
     margin: 0;
 }
 
@@ -81,7 +83,7 @@ body, html {
     margin-bottom: 10px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
-    padding: 0; /* Remove default */
+    padding: 0;
 }
 
 .sidebar ul li a {
@@ -93,32 +95,44 @@ body, html {
     width: 100%;
     padding: 13px 24px;
     border-radius: 10px 0 0 10px;
-    transition: background 0.18s, color 0.18s;
+    transition: all 0.18s ease;
     font-size: 1.18rem;
 }
 
 .sidebar ul li.active a,
 .sidebar ul li:hover a {
-    background: var(--swks-green-dark);
-    color: #fff;
+    background: var(--swks-green-accent); /* Bright, happy green */
+    color: var(--text-light);
     font-weight: 700;
+    box-shadow: 0 2px 8px rgba(129, 199, 132, 0.3);
 }
 
 .sidebar ul li i {
     font-size: 1.35rem;
     min-width: 26px;
     text-align: center;
+    color: var(--swks-green);
+}
+
+.sidebar ul li.active a i,
+.sidebar ul li:hover a i {
+    color: var(--text-light);
 }
 
 .sidebar .close-sidebar {
     display: none;
-    color: #fff;
+    color: var(--swks-green);
     font-size: 1.7rem;
     position: absolute;
     right: 16px;
     top: 10px;
     background: none;
     border: none;
+    transition: color 0.2s;
+}
+
+.sidebar .close-sidebar:hover {
+    color: var(--swks-green-dark);
 }
 
 /* Responsive for mobile/tablet */
@@ -135,104 +149,16 @@ body, html {
     }
 }
 
-
 /* ========== HEADER / HEADBAR ========== */
-.profile-dropdown .user-info-area {
-    background: #f7faf9;
-    border-radius: 8px;
-    margin-bottom: 5px;
-    text-align: left;
-}
-
-.profile-dropdown .fw-bold {
-    color: #16501a;
-    letter-spacing: 0.2px;
-}
-
-.profile-dropdown .dropdown-item {
-    font-size: 1.01rem;
-    padding: 10px 16px;
-    transition: background 0.15s, color 0.15s;
-    border-radius: 6px;
-}
-
-.profile-dropdown .dropdown-item:hover,
-.profile-dropdown .dropdown-item:focus {
-    background: #eafbe3;
-    color: #16501a;
-}
-.profile-dropdown .dropdown-item.text-danger {
-    color: #e13c3c;
-}
-.profile-dropdown .dropdown-item.text-danger:hover {
-    background: #ffe6e6;
-    color: #b11111;
-}
-.profile-dropdown .user-info-area {
-    background: #f7faf9;
-    border-radius: 8px;
-    margin-bottom: 5px;
-    text-align: left;
-}
-.profile-dropdown .fw-bold {
-    color: #16501a;
-    letter-spacing: 0.2px;
-}
-.profile-dropdown .dropdown-item {
-    font-size: 1.01rem;
-    padding: 10px 16px;
-    transition: background 0.15s, color 0.15s;
-    border-radius: 6px;
-}
-.profile-dropdown .dropdown-item:hover,
-.profile-dropdown .dropdown-item:focus {
-    background: #eafbe3;
-    color: #16501a;
-}
-.profile-dropdown .dropdown-item.text-danger {
-    color: #e13c3c;
-}
-.profile-dropdown .dropdown-item.text-danger:hover {
-    background: #ffe6e6;
-    color: #b11111;
-}
-.profile-modal .modal-content {
-    border-radius: 1.6rem;
-    box-shadow: 0 4px 32px rgba(16,40,40,0.12);
-    background: #f8fafc;
-}
-.profile-modal .profile-banner {
-    background: linear-gradient(90deg,#186a1a,#43e97b 90%);
-    height: 64px;
-    border-radius: 1.6rem 1.6rem 0 0;
-}
-.profile-modal .profile-icon {
-    margin-top: -36px;
-    background: #fff;
-    border: 4px solid #f8fafc;
-    box-shadow: 0 2px 8px rgba(16,40,40,0.08);
-}
-.profile-modal .role-badge {
-    background: #e8f5e9;
-    color: #186a1a;
-    font-weight: 600;
-    border-radius: 8px;
-    font-size: 0.92rem;
-    padding: 0.2em 0.7em;
-    margin-bottom: 8px;
-}
-
-
-
 .headbar {
-    background: var(--swks-green);
+    background: var(--swks-green); /* Strong but not oppressive */
     height: 60px;
     width: 100%;
     display: flex;
     align-items: center;
     padding: 0 32px;
-    color: #fff;
-    box-shadow: 0 1px 4px rgba(4, 60, 0, 0.1);
+    color: var(--text-light);
+    box-shadow: 0 1px 6px rgba(46, 125, 50, 0.15);
     position: fixed;
     top: 0;
     z-index: 1020;
@@ -247,14 +173,89 @@ body, html {
     margin-right: 15px;
     background: none;
     border: none;
-    color: #fff;
+    color: var(--text-light);
+    transition: color 0.2s;
+}
+
+.hamburger-btn:hover {
+    color: var(--swks-green-light);
 }
 
 .main-content {
     margin-left: 210px;
     padding: 90px 22px 32px 22px;
+    padding-top:70px;
     min-height: 100vh;
     transition: margin-left 0.25s;
+    background: var(--swks-green-pale); /* Very soft green background */
+}
+
+/* ========== PROFILE DROPDOWN ========== */
+.profile-dropdown .user-info-area {
+    background: #f7faf9;
+    border-radius: 8px;
+    margin-bottom: 5px;
+    text-align: left;
+    border: 1px solid var(--swks-green-light);
+}
+
+.profile-dropdown .fw-bold {
+    color: var(--swks-green-dark);
+    letter-spacing: 0.2px;
+}
+
+.profile-dropdown .dropdown-item {
+    font-size: 1.01rem;
+    padding: 10px 16px;
+    transition: all 0.15s ease;
+    border-radius: 6px;
+    color: var(--text-dark);
+}
+
+.profile-dropdown .dropdown-item:hover,
+.profile-dropdown .dropdown-item:focus {
+    background: var(--swks-green-light);
+    color: var(--swks-green-dark);
+    transform: translateX(4px);
+}
+
+.profile-dropdown .dropdown-item.text-danger {
+    color: #e53935;
+}
+
+.profile-dropdown .dropdown-item.text-danger:hover {
+    background: #ffe6e6;
+    color: #c62828;
+}
+
+/* Profile Modal */
+.profile-modal .modal-content {
+    border-radius: 1.6rem;
+    box-shadow: 0 4px 32px rgba(46, 125, 50, 0.1);
+    background: #fff;
+}
+
+.profile-modal .profile-banner {
+    background: linear-gradient(90deg, var(--swks-green-dark), var(--swks-green-accent) 90%);
+    height: 64px;
+    border-radius: 1.6rem 1.6rem 0 0;
+}
+
+.profile-modal .profile-icon {
+    margin-top: -36px;
+    background: #fff;
+    border: 4px solid #f8fafc;
+    box-shadow: 0 2px 8px rgba(46, 125, 50, 0.1);
+}
+
+.profile-modal .role-badge {
+    background: var(--swks-green-light);
+    color: var(--swks-green-dark);
+    font-weight: 600;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    padding: 0.2em 0.7em;
+    margin-bottom: 8px;
 }
 
 /* ========== RESPONSIVE DESIGN ========== */
@@ -286,11 +287,129 @@ body, html {
         display: block;
     }
 }
+
 .active-notif {
     background: #f1f8f4 !important;
     font-weight: 600 !important;
-    border-left: 3px solid #28a745 !important;
+    border-left: 3px solid var(--swks-green-accent) !important;
 }
+
 .notification-dropdown .dropdown-menu {
     padding-top: 0 !important;
+}
+
+/* === White Header === */
+.headbar{
+  background:#ffffff !important;   /* puting background */
+  color: var(--text-dark) !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,.08); /* subtle shadow para di dumikit */
+  border-bottom: 1px solid #eef3ef;      /* optional divider */
+}
+
+/* icons / buttons sa white header */
+.headbar .hamburger-btn,
+.headbar .btn,
+.headbar i,
+.headbar .bi{
+  color: var(--swks-green) !important;         /* visible on white */
+}
+.headbar .hamburger-btn:hover,
+.headbar .btn:hover,
+.headbar .bi:hover{
+  color: var(--swks-green-dark) !important;
+}
+
+/* notification bell stays green */
+.notification-bell,
+.notif-bell,
+.notif-btn{
+  color: var(--swks-green) !important;
+}
+.notification-bell:hover,
+.notif-bell:hover,
+.notif-btn:hover{
+  color: var(--swks-green-dark) !important;
+}
+
+/* search input look sa white header (optional) */
+.headbar .form-control{
+  background:#fff;
+  border:1px solid #e3e9e5;
+  color: var(--text-dark);
+}
+.headbar .form-control:focus{
+  border-color: var(--swks-green);
+  box-shadow: 0 0 0 3px rgba(46,125,50,.12);
+}
+/* === Page background behind the cards (very light mint) === */
+:root{
+  --page-bg: #eef7f0; /* super soft mint, katulad sa screenshot */
+}
+
+/* main content wrapper */
+.main-content{
+  background: var(--page-bg) !important;
+}
+
+/* optional: subtle separator line on top of sections */
+.section-strip {
+  border-top: 1px solid rgba(0,0,0,.03);
+}
+
+/* make sure cards stay white & clean on top of the mint bg */
+.stat-card,
+.calendar-card,
+.card{
+  background: #ffffff;
+  border: 1px solid #e7efe9;         /* napaka subtle border */
+  box-shadow: 0 4px 18px rgba(0,0,0,.04);
+}
+
+/* soften the card corners para mas airy tingnan */
+.stat-card,
+.calendar-card,
+.card{
+  border-radius: 22px;
+}
+/* === Notification dropdown: show ~5 items then scroll === */
+:root{
+  /* average height per notif row; adjust kung iba spacing mo */
+  --notif-item-h: 58px;
+}
+
+.notification-dropdown .dropdown-menu{
+  max-height: calc(var(--notif-item-h) * 5 + 16px); /* ~5 items + padding */
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable both-edges;     /* iwas layout jump */
+  overscroll-behavior: contain;            /* iwas page scroll while scrolling dropdown */
+  border-radius: 14px;
+}
+
+/* make items wrap nicely and keep consistent height */
+.notification-dropdown .dropdown-item{
+  min-height: var(--notif-item-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: normal;                      /* allow multi-line text */
+  padding: 10px 14px;
+}
+
+/* optional: sticky header/footer areas sa dropdown */
+.notification-dropdown .notif-header{
+  position: sticky; top: 0;
+  background: #fff; z-index: 1; 
+  border-bottom: 1px solid var(--border-light);
+}
+.notification-dropdown .notif-footer{
+  position: sticky; bottom: 0;
+  background: #fff; z-index: 1; 
+  border-top: 1px solid var(--border-light);
+}
+
+/* optional: prettier thin scrollbar (WebKit) */
+.notification-dropdown .dropdown-menu::-webkit-scrollbar{ width: 8px; }
+.notification-dropdown .dropdown-menu::-webkit-scrollbar-thumb{
+  background: #d7e6da; border-radius: 8px;
 }

@@ -43,12 +43,6 @@ if ($userId) {
     <span style="font-size: 1.14rem; font-weight: 700; letter-spacing: 1px;">SWKS</span>
     <!-- Right side icons -->
     <div class="ms-auto d-flex align-items-center" style="gap:16px;">
-        <input 
-            type="text" 
-            class="form-control form-control-sm" 
-            placeholder="Search..." 
-            style="width:140px; border-radius:8px; border:none; box-shadow:none;"
-        >
         <!-- Notification Bell -->
         <div class="dropdown" style="margin-right: 10px;">
             <a href="#" class="position-relative" id="notifDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false" style="display:inline-block; text-decoration:none; color:inherit;">
