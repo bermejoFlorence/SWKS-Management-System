@@ -32,10 +32,11 @@ $reqSql = "
   LEFT JOIN adviser_details ad ON ad.user_id = u.user_id
   LEFT JOIN organization o ON o.org_id = br.org_id
   LEFT JOIN borrow_request_items bri ON bri.request_id = br.request_id
-  WHERE br.status = 'validated'
+  WHERE br.status IN ('validated','approved','returned')   -- ⬅️ include approved & returned
   GROUP BY br.request_id
   ORDER BY br.created_at DESC
 ";
+
 $requestsQ = $conn->query($reqSql);
 
 /* Per-request items (for collapsible details) */
@@ -237,21 +238,48 @@ if ($requestsQ && $requestsQ->num_rows) {
                       </span>
                     </td>
                     <td class="text-center">
-                      <span class="badge bg-warning text-dark">validated</span>
-                    </td>
-                    <td class="text-center">
-                      <div class="btn-group">
-                        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#reqItems<?= $rid ?>">
-                          <i class="bi bi-list-ul"></i>
-                        </button>
-                        <button class="btn btn-success btn-sm admin-approve" data-rid="<?= $rid ?>">
-                          <i class="bi bi-check2-circle me-1"></i>Approve
-                        </button>
-                        <button class="btn btn-danger btn-sm admin-reject" data-rid="<?= $rid ?>">
-                          <i class="bi bi-x-circle me-1"></i>Reject
-                        </button>
-                      </div>
-                    </td>
+  <?php
+    $st = strtolower($req['status']);
+    if ($st === 'validated') {
+      echo '<span class="badge bg-warning text-dark">validated</span>';
+    } elseif ($st === 'approved') {
+      echo '<span class="badge bg-primary">approved</span>';
+    } elseif ($st === 'returned') {
+      echo '<span class="badge bg-success">returned</span>';
+    } else {
+      echo '<span class="badge bg-secondary">'.htmlspecialchars($req['status']).'</span>';
+    }
+  ?>
+</td>
+
+<td class="text-center">
+  <div class="btn-group">
+    <!-- always available: show items -->
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#reqItems<?= $rid ?>">
+      <i class="bi bi-list-ul"></i>
+    </button>
+
+    <?php if ($st === 'validated'): ?>
+      <button class="btn btn-success btn-sm admin-approve" data-rid="<?= $rid ?>">
+        <i class="bi bi-check2-circle me-1"></i>Approve
+      </button>
+      <button class="btn btn-danger btn-sm admin-reject" data-rid="<?= $rid ?>">
+        <i class="bi bi-x-circle me-1"></i>Reject
+      </button>
+
+    <?php elseif ($st === 'approved'): ?>
+      <button class="btn btn-outline-success btn-sm admin-return" data-rid="<?= $rid ?>">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Return
+      </button>
+
+    <?php elseif ($st === 'returned'): ?>
+      <button class="btn btn-outline-secondary btn-sm" disabled>
+        <i class="bi bi-check2 me-1"></i>Returned
+      </button>
+    <?php endif; ?>
+  </div>
+</td>
+
                   </tr>
                   <tr class="collapse req-details" id="reqItems<?= $rid ?>">
                     <td colspan="7">
@@ -426,42 +454,48 @@ if ($requestsQ && $requestsQ->num_rows) {
     }).then(() => { sessionStorage.removeItem('inventoryUpdateSuccess'); });
   }
 
-  // --- Admin Approve/Reject actions for validated requests ---
-  document.addEventListener('click', async (e) => {
-    const approveBtn = e.target.closest('.admin-approve');
-    const rejectBtn  = e.target.closest('.admin-reject');
-    if (!approveBtn && !rejectBtn) return;
+// --- Admin Approve / Reject / Return actions ---
+document.addEventListener('click', async (e) => {
+  const btnApprove = e.target.closest('.admin-approve');
+  const btnReject  = e.target.closest('.admin-reject');
+  const btnReturn  = e.target.closest('.admin-return');
+  if (!btnApprove && !btnReject && !btnReturn) return;
 
-    const rid = (approveBtn || rejectBtn).dataset.rid;
-    const action = approveBtn ? 'approve' : 'reject';
+  const el   = btnApprove || btnReject || btnReturn;
+  const rid  = el.dataset.rid;
+  const action = btnApprove ? 'approve' : btnReject ? 'reject' : 'return';
 
-    const res = await Swal.fire({
-      icon: 'question',
-      title: action === 'approve' ? 'Approve request?' : 'Reject request?',
-      showCancelButton: true,
-      confirmButtonText: action === 'approve' ? 'Approve' : 'Reject',
-      confirmButtonColor: action === 'approve' ? '#198754' : '#dc3545'
-    });
-    if (!res.isConfirmed) return;
+  const titles = { approve:'Approve request?', reject:'Reject request?', return:'Mark as returned?' };
+  const labels = { approve:'Approve',           reject:'Reject',           return:'Return' };
+  const colors = { approve:'#198754',          reject:'#dc3545',          return:'#198754' };
 
-    try {
-      const fd = new FormData();
-      fd.append('action', action);
-      fd.append('request_id', rid);
-
-      const r = await fetch('admin_request_action.php', { method:'POST', body:fd });
-      const data = await r.json();
-
-      if (data?.ok) {
-        Swal.fire({ icon:'success', title:'Done', timer:1100, showConfirmButton:false })
-          .then(()=> location.reload());
-      } else {
-        throw new Error(data?.msg || 'Action failed');
-      }
-    } catch(err) {
-      Swal.fire({ icon:'error', title:'Error', text:String(err.message||err) });
-    }
+  const res = await Swal.fire({
+    icon: 'question',
+    title: titles[action],
+    showCancelButton: true,
+    confirmButtonText: labels[action],
+    confirmButtonColor: colors[action]
   });
+  if (!res.isConfirmed) return;
+
+  try {
+    const fd = new FormData();
+    fd.append('action', action);
+    fd.append('request_id', rid);
+
+    const r = await fetch('admin_request_action.php', { method:'POST', body:fd });
+    const data = await r.json();
+
+    if (data?.ok) {
+      Swal.fire({ icon:'success', title:'Done', timer:1100, showConfirmButton:false })
+        .then(()=> location.reload());
+    } else {
+      throw new Error(data?.msg || 'Action failed');
+    }
+  } catch(err) {
+    Swal.fire({ icon:'error', title:'Error', text:String(err.message||err) });
+  }
+});
 
   // Optional: open Requests tab via ?tab=requests
   (function(){

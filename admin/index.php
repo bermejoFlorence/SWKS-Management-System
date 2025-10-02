@@ -3,40 +3,19 @@ include_once 'includes/auth_admin.php';
 include_once '../database/db_connection.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-$start = $_GET['start'] ?? null;
-$end   = $_GET['end']   ?? null;
-
-$types  = '';
-$params = [];
-
-if ($start && $end) {
-  // Parse ISO → 'Y-m-d H:i:s'
-  $endPhp   = (new DateTime($end))->format('Y-m-d H:i:s');
-  $startPhp = (new DateTime($start))->format('Y-m-d H:i:s');
-
-  $sql = "SELECT e.event_id, e.title, e.start_datetime, e.end_datetime, e.all_day,
-                 e.description, e.color, o.org_name
-          FROM org_events e
-          LEFT JOIN organization o ON o.org_id = e.org_id
-          WHERE (e.start_datetime < ? AND COALESCE(e.end_datetime, e.start_datetime) >= ?)
-          ORDER BY e.start_datetime ASC";
-
-  $stmt = $conn->prepare($sql);
-  if (!$stmt) { echo json_encode([]); exit; }
-  $stmt->bind_param('ss', $endPhp, $startPhp);
-} else {
-  // No range => all
-  $sql = "SELECT e.event_id, e.title, e.start_datetime, e.end_datetime, e.all_day,
-                 e.description, e.color, o.org_name
-          FROM org_events e
-          LEFT JOIN organization o ON o.org_id = e.org_id
-          ORDER BY e.start_datetime ASC";
-  $stmt = $conn->prepare($sql);
-}
-/* ------- DEFAULTS para hindi nagwa-warning ------- */
+/* ---------------- Defaults (avoid notices) ---------------- */
 $totalOrgs = 0;
 $totalMembers = 0;
-$validatedRequests = 0; // borrow_requests.status = 'validated'
+$validatedRequests = 0;
+
+/* New KPI totals for the 8 cards */
+$totalInventoryItems = 0; // active SKUs in inventory_items
+$totalBorrowedItems  = 0; // approved + returned quantities
+$totalApprovedItems  = 0; // approved quantities (currently out)
+$totalReturnedItems  = 0; // returned quantities
+$totalOngoingItems   = 0; // alias of approved quantities (currently out)
+
+/* ---------------- Basic KPIs (existing) ---------------- */
 
 /* Total organizations */
 if ($res = $conn->query("SELECT COUNT(*) AS c FROM organization")) {
@@ -58,7 +37,48 @@ if ($res = $conn->query("SELECT COUNT(*) AS c FROM borrow_requests WHERE status=
   $validatedRequests = (int)($row['c'] ?? 0);
   $res->free();
 }
+
+/* ---------------- Inventory + Borrow KPIs (new) ---------------- */
+
+/* Total Inventory Items (active SKUs) */
+if ($res = $conn->query("SELECT COUNT(*) AS c FROM inventory_items WHERE status='active'")) {
+  $row = $res->fetch_assoc();
+  $totalInventoryItems = (int)($row['c'] ?? 0);
+  $res->free();
+}
+
+/* Sum of quantities per borrow status */
+$byStatusQty = [
+  'pending'   => 0,
+  'validated' => 0,
+  'approved'  => 0,
+  'rejected'  => 0,
+  'returned'  => 0,
+  'cancelled' => 0,
+];
+
+$sql = "
+  SELECT br.status, COALESCE(SUM(bri.quantity_requested),0) AS qty
+  FROM borrow_requests br
+  JOIN borrow_request_items bri ON bri.request_id = br.request_id
+  GROUP BY br.status
+";
+if ($res = $conn->query($sql)) {
+  while ($row = $res->fetch_assoc()) {
+    $st  = strtolower((string)$row['status']);
+    $qty = (int)$row['qty'];
+    if (isset($byStatusQty[$st])) $byStatusQty[$st] = $qty;
+  }
+  $res->free();
+}
+
+/* Map to the 4 new cards */
+$totalBorrowedItems = ($byStatusQty['approved'] ?? 0) + ($byStatusQty['returned'] ?? 0);
+$totalApprovedItems = ($byStatusQty['approved'] ?? 0);
+$totalReturnedItems = ($byStatusQty['returned'] ?? 0);
+$totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -308,6 +328,44 @@ if ($res = $conn->query("SELECT COUNT(*) AS c FROM borrow_requests WHERE status=
 .calendar-card .fc .fc-toolbar .fc-button:focus {
   box-shadow: 0 0 0 .2rem rgba(105,191,122,.25) !important;
 }
+/* KPI sizing tweaks so 4 fit comfortably per row */
+.kpi-wrapper .kpi-card {
+  border-radius: 20px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 8px 22px rgba(0,0,0,.06);
+  padding-top: .25rem;
+}
+.kpi-wrapper .kpi-card .card-body {
+  padding: 1.25rem 1rem;
+}
+.kpi-wrapper .kpi-title {
+  font-weight: 800;
+  margin-top: .25rem;
+}
+.kpi-wrapper .kpi-sub {
+  font-weight: 600;
+  opacity: .95;
+}
+
+/* Slightly smaller numbers than the old display-4 */
+.kpi-wrapper .display-6 {
+  font-size: 2.25rem;
+  line-height: 1.1;
+}
+
+/* keep the nice top gradient bars on bordered cards */
+.kpi-wrapper .card.border-success::before,
+.kpi-wrapper .card.border-primary::before,
+.kpi-wrapper .card.border-warning::before,
+.kpi-wrapper .card.border-info::before,
+.kpi-wrapper .card.border-secondary::before{
+  content:""; position:absolute; top:-1px; left:14px; right:14px; height:7px; border-radius:12px; opacity:.95;
+}
+.kpi-wrapper .card.border-success::before{ background: linear-gradient(90deg,#a5d6a7,#66bb6a); }
+.kpi-wrapper .card.border-primary::before{ background: linear-gradient(90deg,#90caf9,#42a5f5); }
+.kpi-wrapper .card.border-warning::before{ background: linear-gradient(90deg,#ffe082,#ffb300); }
+.kpi-wrapper .card.border-info::before{    background: linear-gradient(90deg,#a5e4f5,#29b6f6); }
+.kpi-wrapper .card.border-secondary::before{background: linear-gradient(90deg,#cfd8dc,#90a4ae); }
 
 </style>
   <script>
@@ -325,46 +383,105 @@ if ($res = $conn->query("SELECT COUNT(*) AS c FROM borrow_requests WHERE status=
 <!-- Top cards: 3 centered -->
 <div class="row g-4 justify-content-center text-center mt-2">
   <!-- Total Orgs -->
-  <div class="col-12 col-sm-6 col-lg-4">
-    <div class="card border-success shadow-sm h-100">
-      <div class="card-body d-flex flex-column align-items-center">
-        <div class="display-4 fw-bold text-success"><?= $totalOrgs ?></div>
-        <div class="h5 fw-bold mb-2">Total Organizations</div>
-        <span class="fw-semibold text-success mb-3">All registered orgs</span>
-        <a href="organization.php" class="btn btn-success btn-sm mt-auto">
-          View details
-        </a>
-      </div>
-    </div>
-  </div>
+  <!-- ==== KPI CARDS (8 total: 4 per row) ==== -->
+<div class="container-fluid kpi-wrapper mt-2">
+  <div class="row g-4 text-center justify-content-center">
 
-  <!-- Total Members -->
-  <div class="col-12 col-sm-6 col-lg-4">
-    <div class="card border-primary shadow-sm h-100">
-      <div class="card-body d-flex flex-column align-items-center">
-        <div class="display-4 fw-bold text-primary"><?= $totalMembers ?></div>
-        <div class="h5 fw-bold mb-2">Total Members</div>
-        <span class="fw-semibold text-primary mb-3">Approved members</span>
-        <a href="organization.php" class="btn btn-primary btn-sm mt-auto">
-          View details
-        </a>
+    <!-- Row 1 (4 cards) -->
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-success h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-success"><?= $totalOrgs ?></div>
+          <div class="kpi-title">Total Organizations</div>
+          <div class="kpi-sub text-success mb-3">All registered orgs</div>
+          <a href="organization.php" class="btn btn-success btn-sm mt-auto">View details</a>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Validated Borrow Items -->
-  <div class="col-12 col-sm-6 col-lg-4">
-    <div class="card border-warning shadow-sm h-100">
-      <div class="card-body d-flex flex-column align-items-center">
-        <div class="display-4 fw-bold text-warning"><?= $validatedRequests ?></div>
-        <div class="h5 fw-bold mb-2">Pending Validated Borrow Items</div>
-        <span class="fw-semibold text-warning mb-3">Awaiting admin action</span>
-        <a href="inventory.php" class="btn btn-warning btn-sm mt-auto">
-          View details
-        </a>
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-primary h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-primary"><?= $totalMembers ?></div>
+          <div class="kpi-title">Total Members</div>
+          <div class="kpi-sub text-primary mb-3">Approved members</div>
+          <a href="organization.php" class="btn btn-primary btn-sm mt-auto">View details</a>
+        </div>
       </div>
     </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-warning h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-warning"><?= $validatedRequests ?></div>
+          <div class="kpi-title">Pending Validated Borrow Items</div>
+          <div class="kpi-sub text-warning mb-3">Awaiting admin action</div>
+          <a href="inventory.php" class="btn btn-warning btn-sm mt-auto">View details</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🆕 Total Inventory Items -->
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-info h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-info"><?= $totalInventoryItems ?></div>
+          <div class="kpi-title">Total Inventory Items</div>
+          <div class="kpi-sub text-info mb-3">All items in stock list</div>
+          <a href="inventory.php" class="btn btn-info btn-sm mt-auto text-white">View details</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2 (4 cards) -->
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-secondary h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-secondary"><?= $totalBorrowedItems ?></div>
+          <div class="kpi-title">Total Borrowed Items</div>
+          <div class="kpi-sub text-secondary mb-3">All borrow entries</div>
+          <a href="inventory.php" class="btn btn-secondary btn-sm mt-auto">View details</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-success h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-success"><?= $totalApprovedItems ?></div>
+          <div class="kpi-title">Total Approved Items</div>
+          <div class="kpi-sub text-success mb-3">Approved borrow requests</div>
+          <a href="inventory.php" class="btn btn-success btn-sm mt-auto">View details</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-primary h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-primary"><?= $totalReturnedItems ?></div>
+          <div class="kpi-title">Total Returned Items</div>
+          <div class="kpi-sub text-primary mb-3">Completed returns</div>
+          <a href="inventory.php" class="btn btn-primary btn-sm mt-auto">View details</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card kpi-card border-warning h-100 position-relative">
+        <div class="card-body d-flex flex-column align-items-center">
+          <div class="display-6 fw-bold text-warning"><?= $totalOngoingItems ?></div>
+          <div class="kpi-title">Total Ongoing Items</div>
+          <div class="kpi-sub text-warning mb-3">Out/issued right now</div>
+          <a href="inventory.php" class="btn btn-warning btn-sm mt-auto">View details</a>
+        </div>
+      </div>
+    </div>
+
   </div>
+</div>
+<!-- ==== /KPI CARDS ==== -->
+
 </div>
     <!-- Calendar -->
     <div class="row g-4 mt-1">

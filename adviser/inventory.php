@@ -34,7 +34,8 @@ $reqListQ = $conn->prepare("
     JOIN user u ON u.user_id = br.user_id
     LEFT JOIN member_details md ON md.user_id = u.user_id
     WHERE br.org_id = ?
-    ORDER BY FIELD(br.status,'pending','validated','approved','rejected'), br.created_at DESC
+   ORDER BY FIELD(br.status,'pending','validated','approved','returned','rejected'), br.created_at DESC
+
 ");
 
 $reqListQ->bind_param("i", $org_id);
@@ -116,6 +117,8 @@ $reqList = $reqListQ->get_result();
       <option value="validated">Validated</option>
       <option value="approved">Approved</option>
       <option value="rejected">Rejected</option>
+      <option value="returned">Returned</option>
+
     </select>
   </div>
 
@@ -143,71 +146,83 @@ $reqList = $reqListQ->get_result();
             </thead>
             <tbody>
             <?php $i=1; while($r = $reqList->fetch_assoc()): 
-              $s = $r['status'];
-              $badge = ($s==='pending')?'warning':(($s==='validated')?'info':(($s==='approved')?'success':'secondary'));
-            ?>
-              <tr>
-                <td class="text-center fw-semibold"><?= $i++ ?></td>
-                <td class="fw-semibold">
-                  <?php if (!empty($r['item_image'])): ?>
-                    <img src="/swks/<?= htmlspecialchars($r['item_image']) ?>" class="item-thumb me-2" alt="">
-                  <?php endif; ?>
-                  <?= htmlspecialchars($r['item_name']) ?>
-                </td>
-                <td><?= htmlspecialchars($r['member_name']) ?></td>
-                <td class="text-center"><?= (int)$r['qty'] ?></td>
-                <td><?= date('F j, Y g:i A', strtotime($r['created_at'])) ?></td>
-                <td class="text-center">
-                  <span class="badge bg-<?= $badge ?> px-3 py-2 text-uppercase"><?= htmlspecialchars($s) ?></span>
-                </td>
-                  <td class="text-center">
-                    <?php if ($s === 'pending'): ?>
-                      <button class="btn btn-success me-2"
-                              onclick="openRowModal(this,'validate')"
-                              data-request-id="<?= (int)$r['request_id'] ?>"
-                              data-item-id="<?= (int)$r['item_id'] ?>"
-                              data-item-name="<?= htmlspecialchars($r['item_name'], ENT_QUOTES) ?>"
-                              data-item-image="<?= htmlspecialchars($r['item_image'] ?? '', ENT_QUOTES) ?>"
-                              data-member="<?= htmlspecialchars($r['member_name'], ENT_QUOTES) ?>"
-                              data-course="<?= htmlspecialchars($r['course'] ?? '', ENT_QUOTES) ?>"
-                              data-year="<?= htmlspecialchars($r['year_level'] ?? '', ENT_QUOTES) ?>"
-                              data-qty="<?= (int)$r['qty'] ?>"
-                              data-created="<?= htmlspecialchars($r['created_at'], ENT_QUOTES) ?>">
-                        Validate
-                      </button>
+  $s = strtolower($r['status']); // normalize
+  // badge colors: pending=warning, validated=info, approved=primary, returned=success, rejected=secondary
+  $badge = match($s) {
+    'pending'   => 'warning',
+    'validated' => 'info',
+    'approved'  => 'primary',
+    'returned'  => 'success',
+    'rejected'  => 'secondary',
+    default     => 'secondary'
+  };
+?>
+  <!-- important: data-status for your JS filter -->
+  <tr data-status="<?= htmlspecialchars($s) ?>">
+    <td class="text-center fw-semibold"><?= $i++ ?></td>
+    <td class="fw-semibold">
+      <?php if (!empty($r['item_image'])): ?>
+        <img src="/swks/<?= htmlspecialchars($r['item_image']) ?>" class="item-thumb me-2" alt="">
+      <?php endif; ?>
+      <?= htmlspecialchars($r['item_name']) ?>
+    </td>
+    <td><?= htmlspecialchars($r['member_name']) ?></td>
+    <td class="text-center"><?= (int)$r['qty'] ?></td>
+    <td><?= date('F j, Y g:i A', strtotime($r['created_at'])) ?></td>
 
-                      <button class="btn btn-danger"
-                              onclick="openRowModal(this,'reject')"
-                              data-request-id="<?= (int)$r['request_id'] ?>"
-                              data-item-id="<?= (int)$r['item_id'] ?>"
-                              data-item-name="<?= htmlspecialchars($r['item_name'], ENT_QUOTES) ?>"
-                              data-item-image="<?= htmlspecialchars($r['item_image'] ?? '', ENT_QUOTES) ?>"
-                              data-member="<?= htmlspecialchars($r['member_name'], ENT_QUOTES) ?>"
-                              data-course="<?= htmlspecialchars($r['course'] ?? '', ENT_QUOTES) ?>"
-                              data-year="<?= htmlspecialchars($r['year_level'] ?? '', ENT_QUOTES) ?>"
-                              data-qty="<?= (int)$r['qty'] ?>"
-                              data-created="<?= htmlspecialchars($r['created_at'], ENT_QUOTES) ?>">
-                        Reject
-                      </button>
-                    <?php else: ?>
-                      <button class="btn-view-details btn-view-details-outline"
-                              onclick="openRowModal(this,'view')"
-                              data-request-id="<?= (int)$r['request_id'] ?>"
-                              data-item-id="<?= (int)$r['item_id'] ?>"
-                              data-item-name="<?= htmlspecialchars($r['item_name'], ENT_QUOTES) ?>"
-                              data-item-image="<?= htmlspecialchars($r['item_image'] ?? '', ENT_QUOTES) ?>"
-                              data-member="<?= htmlspecialchars($r['member_name'], ENT_QUOTES) ?>"
-                              data-course="<?= htmlspecialchars($r['course'] ?? '', ENT_QUOTES) ?>"
-                              data-year="<?= htmlspecialchars($r['year_level'] ?? '', ENT_QUOTES) ?>"
-                              data-qty="<?= (int)$r['qty'] ?>"
-                              data-created="<?= htmlspecialchars($r['created_at'], ENT_QUOTES) ?>">
-                        View details
-                      </button>
-                    <?php endif; ?>
-                  </td>
+    <!-- status badge now supports 'returned' -->
+    <td class="text-center">
+      <span class="badge bg-<?= $badge ?> px-3 py-2 text-uppercase"><?= htmlspecialchars($s) ?></span>
+    </td>
 
-              </tr>
-            <?php endwhile; ?>
+    <td class="text-center">
+      <?php if ($s === 'pending'): ?>
+        <button class="btn btn-success me-2"
+                onclick="openRowModal(this,'validate')"
+                data-request-id="<?= (int)$r['request_id'] ?>"
+                data-item-id="<?= (int)$r['item_id'] ?>"
+                data-item-name="<?= htmlspecialchars($r['item_name'], ENT_QUOTES) ?>"
+                data-item-image="<?= htmlspecialchars($r['item_image'] ?? '', ENT_QUOTES) ?>"
+                data-member="<?= htmlspecialchars($r['member_name'], ENT_QUOTES) ?>"
+                data-course="<?= htmlspecialchars($r['course'] ?? '', ENT_QUOTES) ?>"
+                data-year="<?= htmlspecialchars($r['year_level'] ?? '', ENT_QUOTES) ?>"
+                data-qty="<?= (int)$r['qty'] ?>"
+                data-created="<?= htmlspecialchars($r['created_at'], ENT_QUOTES) ?>">
+          Validate
+        </button>
+
+        <button class="btn btn-danger"
+                onclick="openRowModal(this,'reject')"
+                data-request-id="<?= (int)$r['request_id'] ?>"
+                data-item-id="<?= (int)$r['item_id'] ?>"
+                data-item-name="<?= htmlspecialchars($r['item_name'], ENT_QUOTES) ?>"
+                data-item-image="<?= htmlspecialchars($r['item_image'] ?? '', ENT_QUOTES) ?>"
+                data-member="<?= htmlspecialchars($r['member_name'], ENT_QUOTES) ?>"
+                data-course="<?= htmlspecialchars($r['course'] ?? '', ENT_QUOTES) ?>"
+                data-year="<?= htmlspecialchars($r['year_level'] ?? '', ENT_QUOTES) ?>"
+                data-qty="<?= (int)$r['qty'] ?>"
+                data-created="<?= htmlspecialchars($r['created_at'], ENT_QUOTES) ?>">
+          Reject
+        </button>
+      <?php else: ?>
+        <button class="btn-view-details btn-view-details-outline"
+                onclick="openRowModal(this,'view')"
+                data-request-id="<?= (int)$r['request_id'] ?>"
+                data-item-id="<?= (int)$r['item_id'] ?>"
+                data-item-name="<?= htmlspecialchars($r['item_name'], ENT_QUOTES) ?>"
+                data-item-image="<?= htmlspecialchars($r['item_image'] ?? '', ENT_QUOTES) ?>"
+                data-member="<?= htmlspecialchars($r['member_name'], ENT_QUOTES) ?>"
+                data-course="<?= htmlspecialchars($r['course'] ?? '', ENT_QUOTES) ?>"
+                data-year="<?= htmlspecialchars($r['year_level'] ?? '', ENT_QUOTES) ?>"
+                data-qty="<?= (int)$r['qty'] ?>"
+                data-created="<?= htmlspecialchars($r['created_at'], ENT_QUOTES) ?>">
+          View details
+        </button>
+      <?php endif; ?>
+    </td>
+  </tr>
+<?php endwhile; ?>
+
 
             <tr id="noDataRow" class="d-none">
   <td colspan="7" class="text-center text-muted py-4">
