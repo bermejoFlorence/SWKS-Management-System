@@ -159,39 +159,58 @@ if ($action === 'update') {
 }
 
 // ---------- DELETE ----------
+// ---------- DELETE ----------
 if ($action === 'delete') {
+
+  // helpers: schema checks (safe vs missing tables/cols)
+  $hasTable = function(mysqli $c, string $t): bool {
+    $sql = "SELECT 1 FROM information_schema.tables
+            WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1";
+    $st = $c->prepare($sql);
+    $st->bind_param('s', $t);
+    $st->execute();
+    $st->store_result();
+    $ok = $st->num_rows > 0;
+    $st->close();
+    return $ok;
+  };
+  $hasColumn = function(mysqli $c, string $t, string $col): bool {
+    $sql = "SELECT 1 FROM information_schema.columns
+            WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1";
+    $st = $c->prepare($sql);
+    $st->bind_param('ss', $t, $col);
+    $st->execute();
+    $st->store_result();
+    $ok = $st->num_rows > 0;
+    $st->close();
+    return $ok;
+  };
+
   $conn->begin_transaction();
   try {
-    // 0) OPTIONAL: remove attachments table if you have it (uncomment if exists)
-    // $st = $conn->prepare("DELETE FROM forum_attachment WHERE post_id=?");
-    // $st->bind_param('i', $postId);
-    // $st->execute(); $st->close();
-
-    // 1) Remove dependent rows that likely have FKs to forum_post
-    if ($st = $conn->prepare("DELETE FROM forum_comment WHERE post_id=?")) {
+    // 1) Delete dependents first (present in your schema)
+    if ($hasTable($conn, 'forum_comment') && $hasColumn($conn, 'forum_comment', 'post_id')) {
+      $st = $conn->prepare("DELETE FROM forum_comment WHERE post_id=?");
       $st->bind_param('i', $postId);
       $st->execute(); $st->close();
     }
-    if ($st = $conn->prepare("DELETE FROM forum_reaction WHERE post_id=?")) { // if you have this table
-      $st->bind_param('i', $postId);
-      $st->execute(); $st->close();
-    }
-    if ($st = $conn->prepare("DELETE FROM notification WHERE post_id=?")) {
+    if ($hasTable($conn, 'notification') && $hasColumn($conn, 'notification', 'post_id')) {
+      $st = $conn->prepare("DELETE FROM notification WHERE post_id=?");
       $st->bind_param('i', $postId);
       $st->execute(); $st->close();
     }
 
-    // 2) Delete the post itself
+    // (Optional) attachments table — only if you actually have it
+    if ($hasTable($conn, 'forum_attachment') && $hasColumn($conn, 'forum_attachment', 'post_id')) {
+      $st = $conn->prepare("DELETE FROM forum_attachment WHERE post_id=?");
+      $st->bind_param('i', $postId);
+      $st->execute(); $st->close();
+    }
+
+    // 2) Delete the post
     $st = $conn->prepare("DELETE FROM forum_post WHERE post_id=?");
     $st->bind_param('i', $postId);
-    $ok = $st->execute();
-    $err = $st->error;
-    $st->close();
-
-    if (!$ok) {
-      $conn->rollback();
-      echo json_encode(['ok'=>false,'msg'=>'Delete failed','sql_error'=>$err]); exit;
-    }
+    $st->execute(); $st->close();
 
     // 3) Verify gone (optional)
     $check = $conn->prepare("SELECT 1 FROM forum_post WHERE post_id=? LIMIT 1");
@@ -206,22 +225,8 @@ if ($action === 'delete') {
       echo json_encode(['ok'=>false,'msg'=>'Delete failed (still exists)']); exit;
     }
 
-    // 4) Commit deletion of the post + its dependents
+    // 4) Finish
     $conn->commit();
-
-    // 5) Compose message (values captured before deletion)
-    $isGeneral = (is_null($orgId) || (int)$orgId === SWKS_ORG_ID);
-    $msg = $isGeneral
-      ? (is_null($orgId) ? "An admin deleted a post: {$titleForMsg}"
-                         : "[{$orgName}] An admin deleted a post: {$titleForMsg}")
-      : "An admin deleted a post in {$orgName}: {$titleForMsg}";
-
-    // 6) Send notifications with NULL post_id to avoid FK violations after deletion
-    $okN = notify_admin_action($conn, $orgId, null, $editorId, 'forum_post_deleted', $msg);
-    if (!$okN) {
-      echo json_encode(['ok'=>false,'msg'=>'Deleted, but notifications failed']); exit;
-    }
-
     echo json_encode(['ok'=>true,'msg'=>'Deleted']); exit;
 
   } catch (Throwable $e) {
