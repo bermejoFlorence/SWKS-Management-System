@@ -37,13 +37,12 @@ if (!empty($_SESSION['org_id'])) {
         exit('No organization assigned to this adviser.');
     }
 }
+const SWKS_ORG_ID = 11; // i-set sa totoong SWKS org_id mo
 
-
-// Fetch forum posts (for adviser's org + admin posts)
-$sql = "SELECT 
-            p.*, 
-            u.user_role, 
-            u.user_email, 
+$sql = "SELECT
+            p.*,
+            u.user_role,
+            u.user_email,
             COALESCE(m.full_name, a.adviser_fname, c.coor_name, u.user_email) AS poster_name,
             m.profile_picture AS member_pic,
             a.profile_pic AS adviser_pic,
@@ -55,12 +54,18 @@ $sql = "SELECT
         LEFT JOIN adviser_details a ON a.user_id = u.user_id
         LEFT JOIN aca_coordinator_details c ON c.user_id = u.user_id
         LEFT JOIN organization org ON org.org_id = u.org_id
-        WHERE p.org_id = ? OR p.org_id = 11
+        WHERE 
+            /* 1) Posts for the adviser's own org */
+            p.org_id = ?
+            /* 2) PLUS general (SWKS) posts created by admin only */
+            OR (p.org_id = ? AND u.user_role = 'admin')
         ORDER BY p.created_at DESC";
 
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $org_id);
+$swks = (int) SWKS_ORG_ID;            // kailangan variable, hindi constant/expression
+$stmt->bind_param("ii", $org_id, $swks);
 $stmt->execute();
+
 $result = $stmt->get_result();
 
 // Prepare post IDs for JS AJAX comments loading
@@ -301,7 +306,10 @@ if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
                 $btn.prop('disabled', false).html('Post');
                 form.reset();
                 $('#attachment-preview').html('');
-                $('#forumPostsContainer').load(location.href + ' #forumPostsContainer > *');
+               $('#forumPostsContainer').load(location.href + ' #forumPostsContainer > *', function () {
+  initFilters(); // re-bind listeners after DOM got replaced
+});
+
             },
             error: function() {
                 $btn.prop('disabled', false).html('Post');
@@ -439,48 +447,6 @@ $(document).on('click', '.comment-toggle', function() {
         });
     });
 });
-document.addEventListener('DOMContentLoaded', function() {
-    // Get filter inputs
-    const searchInput = document.getElementById('forumSearch');
-    const monthSelect = document.querySelector('select[name="month"]');
-    const yearSelect = document.querySelector('select[name="year"]');
-    const orgSelect = document.querySelector('select[name="organization"]');
-
-    // Listen to all filter inputs
-    [searchInput, monthSelect, yearSelect, orgSelect].forEach(el => {
-        if(el) el.addEventListener('input', filterPosts);
-        if(el && el.tagName === "SELECT") el.addEventListener('change', filterPosts);
-    });
-
-    function filterPosts() {
-        const searchVal = searchInput.value.trim().toLowerCase();
-        const monthVal = monthSelect.value;
-        const yearVal = yearSelect.value;
-        const orgVal = orgSelect.value;
-
-        let visibleCount = 0; // Make sure to declare this before the loop!
-
-        document.querySelectorAll('.forum-post-card').forEach(card => {
-            const text = card.innerText.toLowerCase();
-            const cardMonth = card.getAttribute('data-month');
-            const cardYear  = card.getAttribute('data-year');
-            const cardOrg   = card.getAttribute('data-org_id');
-
-            let show = true;
-            if(searchVal && !text.includes(searchVal)) show = false;
-            if(monthVal && monthVal !== "Month" && cardMonth !== monthVal) show = false;
-            if(yearVal && yearVal !== "Year" && cardYear !== yearVal) show = false;
-            if(orgVal && cardOrg !== orgVal && orgVal !== "SWKS") show = false;
-
-            card.style.display = show ? "" : "none";
-            if(show) visibleCount++;
-        });
-
-        // Show/hide "no results" message
-        document.getElementById('noResultsMsg').style.display = (visibleCount === 0) ? "" : "none";
-    }
-});
-
 setInterval(function() {
     <?php foreach ($postIds as $pid): ?>
         $.get('includes/get_comment_count.php', { post_id: <?= $pid ?> }, function(data) {
@@ -656,6 +622,60 @@ function stopCommentPolling(postId) {
     }
 }
 
+</script>
+<script>
+function initFilters(){
+  const searchInput = document.getElementById('forumSearch');
+  const monthSelect = document.querySelector('select[name="month"]');
+  const yearSelect  = document.querySelector('select[name="year"]');
+  const orgSelect   = document.querySelector('select[name="organization"]'); // might be null on adviser page
+
+  const onFilter = () => {
+    const searchVal = (searchInput?.value || '').trim().toLowerCase();
+    const monthVal  = monthSelect?.value || '';   // "January" | "" | "Month"
+    const yearVal   = yearSelect?.value  || '';   // "2025"   | "" | "Year"
+    const orgVal    = orgSelect ? (orgSelect.value || '') : ''; // safely handle null
+
+    let visibleCount = 0;
+
+    document.querySelectorAll('.forum-post-card').forEach(card => {
+      const text      = card.innerText.toLowerCase();
+      const cardMonth = card.getAttribute('data-month'); // e.g., "January"
+      const cardYear  = card.getAttribute('data-year');  // e.g., "2025"
+      const cardOrg   = card.getAttribute('data-org_id');
+
+      let show = true;
+      if (searchVal && !text.includes(searchVal)) show = false;
+      if (monthVal && monthVal !== 'Month' && cardMonth !== monthVal) show = false;
+      if (yearVal  && yearVal  !== 'Year'  && cardYear  !== yearVal ) show = false;
+      // orgSelect may not exist on adviser page; only apply when present
+      if (orgSelect && orgVal && orgVal !== 'SWKS' && cardOrg !== orgVal) show = false;
+
+      card.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    });
+
+    const noRes = document.getElementById('noResultsMsg');
+    if (noRes) noRes.style.display = (visibleCount === 0) ? '' : 'none';
+  };
+
+  // attach listeners (avoid duplicates by removing old first)
+  [searchInput, monthSelect, yearSelect, orgSelect].forEach(el => {
+    if (!el) return;
+    el.removeEventListener('input', onFilter);
+    el.removeEventListener('change', onFilter);
+    el.addEventListener('input', onFilter);
+    if (el.tagName === 'SELECT') el.addEventListener('change', onFilter);
+  });
+
+  // run once on init
+  onFilter();
+}
+
+// init on first load
+document.addEventListener('DOMContentLoaded', initFilters);
+
+// re-init after you reload the posts container via jQuery .load()
 </script>
 
 </body>

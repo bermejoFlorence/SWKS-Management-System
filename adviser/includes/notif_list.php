@@ -9,7 +9,7 @@ $notifications = [];
 if ($userId) {
    $notifSql = "SELECT n.*, fp.title, 
     u.user_role AS poster_role,
-    u.user_id   AS post_author_id,  -- << ADD THIS
+    u.user_id   AS post_author_id,  -- << ADD THIS (already in your code)
     COALESCE(m.full_name, a.adviser_fname, c.coor_name, u.user_email) AS poster_name,
     org_u.org_name AS poster_org,
 
@@ -33,7 +33,6 @@ WHERE n.user_id = ?
 ORDER BY n.is_seen ASC, n.created_at DESC
 LIMIT 10";
 
-
     $notifStmt = $conn->prepare($notifSql);
     $notifStmt->bind_param("i", $userId);
     $notifStmt->execute();
@@ -54,31 +53,46 @@ LIMIT 10";
         $notifTime = timeAgo($notif['created_at']);
 
         if ($notif['type'] === 'forum_comment') {
-    $actorName    = formatNotifActor($notif['commenter_role'], $notif['commenter_org'], $notif['commenter_name']);
-    $recipientId  = (int)$userId;
-    $postAuthorId = (int)($notif['post_author_id'] ?? 0);
-    $postAuthorLbl= formatPosterLabel($notif['poster_role'], $notif['poster_org'], $notif['poster_name']);
+            $actorName    = formatNotifActor($notif['commenter_role'], $notif['commenter_org'], $notif['commenter_name']);
+            $recipientId  = (int)$userId;
+            $postAuthorId = (int)($notif['post_author_id'] ?? 0);
+            $postAuthorLbl= formatPosterLabel($notif['poster_role'], $notif['poster_org'], $notif['poster_name']);
 
-    if ($recipientId === $postAuthorId) {
-        $notifMsg = "<b>" . htmlspecialchars($actorName) . "</b> commented on your post: "
-                  . "<span class='text-success'>" . htmlspecialchars($notif['title']) . "</span>";
-    } else {
-        $notifMsg = "<b>" . htmlspecialchars($actorName) . "</b> commented on "
-                  . "<b>" . htmlspecialchars($postAuthorLbl) . "</b>'s post: "
-                  . "<span class='text-success'>" . htmlspecialchars($notif['title']) . "</span>";
-    }
-}
- elseif ($notif['type'] === 'forum_post') {
+            if ($recipientId === $postAuthorId) {
+                $notifMsg = "<b>" . htmlspecialchars($actorName) . "</b> commented on your post: "
+                          . "<span class='text-success'>" . htmlspecialchars($notif['title']) . "</span>";
+            } else {
+                $notifMsg = "<b>" . htmlspecialchars($actorName) . "</b> commented on "
+                          . "<b>" . htmlspecialchars($postAuthorLbl) . "</b>'s post: "
+                          . "<span class='text-success'>" . htmlspecialchars($notif['title']) . "</span>";
+            }
+
+        } elseif ($notif['type'] === 'forum_post') {
             $actorName = formatPosterLabel($notif['poster_role'], $notif['poster_org'], $notif['poster_name']);
             $notifMsg = "<b>" . htmlspecialchars($actorName) . "</b> posted: <span class='text-success'>" . htmlspecialchars($notif['title']) . "</span>";
+
+        /* >>> ADD: admin edited post message <<< */
+        } elseif ($notif['type'] === 'forum_post_edited') {
+            // Consistent rendering with other forum notifs.
+            // Use joined fp.title when present; fallback to message if needed.
+            $title = trim((string)($notif['title'] ?? '')) !== '' ? $notif['title'] : $notif['message'];
+            // Show org tag like your screenshot "[SWKS] ..."
+            $orgLabel = $notif['poster_org'] ? ('[' . htmlspecialchars($notif['poster_org']) . ']') : '[SWKS]';
+            $notifMsg = "<b>{$orgLabel}</b> An admin edited a post: "
+                      . "<span class='text-success'>" . htmlspecialchars($title) . "</span>";
+
         } elseif ($notif['type'] === 'announcement') {
             $notifMsg = "New announcement: <span class='text-success'>" . htmlspecialchars($notif['title']) . "</span>";
+
         } elseif ($notif['type'] === 'approval') {
             $notifMsg = "Your membership was approved!";
+
         } elseif ($notif['type'] === 'membership_form') {
             $notifMsg = "New membership application received!";
+
         } elseif ($notif['type'] === 'borrow_request') {
             $notifMsg = "<b>" . htmlspecialchars($notif['message']) . "</b>";
+
         } else {
             $notifMsg = htmlspecialchars($notif['message']);
         }
@@ -86,18 +100,30 @@ LIMIT 10";
         // Set link depending on type
         if ($notif['type'] === 'membership_form') {
             $notif_link = "/swks/adviser/applications.php?notif_id=" . (int)$notif['notification_id'];
-        } elseif ($notif['type'] === 'forum_comment' || $notif['type'] === 'forum_post') {
-            $notif_link = "/swks/adviser/view_forum_post.php?post_id=" . (int)$notif['post_id'] . "&notif_id=" . (int)$notif['notification_id'];
+
+        } elseif ($notif['type'] === 'forum_comment' 
+               || $notif['type'] === 'forum_post'
+               /* >>> ADD: link mapping for edited post <<< */
+               || $notif['type'] === 'forum_post_edited') {
+
+            if (!empty($notif['post_id'])) {
+                $notif_link = "/swks/adviser/view_forum_post.php?post_id=" . (int)$notif['post_id']
+                            . "&notif_id=" . (int)$notif['notification_id'];
+            } else {
+                $notif_link = "#";
+            }
+
         } elseif ($notif['type'] === 'borrow_request') {
             $notif_link = "/swks/adviser/inventory.php?notif_id=" . (int)$notif['notification_id'];
+
         } else {
             $notif_link = "#";
         }
         ?>
         <li>
             <a href="<?= $notif_link ?>"
-                class="dropdown-item d-flex justify-content-between align-items-start <?= $notif_class ?>"
-                style="white-space:normal;">
+               class="dropdown-item d-flex justify-content-between align-items-start <?= $notif_class ?>"
+               style="white-space:normal;">
                 <div>
                     <div><?= $notifMsg ?></div>
                     <small class="text-muted"><?= $notifTime ?></small>

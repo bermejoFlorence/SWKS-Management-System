@@ -696,30 +696,37 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function fetchNewPosts() {
-    fetch(`/swks/includes/fetch_forum_posts.php?since_id=${latestPostId}`)
+    // basahin ang kasalukuyang org filter
+    const orgSelect = document.querySelector('select[name="organization"]');
+    const currentOrg = orgSelect ? orgSelect.value : 'SWKS';
+
+    fetch(`/swks/includes/fetch_forum_posts.php?since_id=${latestPostId}&organization=${encodeURIComponent(currentOrg)}`)
         .then(res => res.json())
         .then(data => {
             if (data.success && Array.isArray(data.posts) && data.posts.length > 0) {
-                // Insert new posts at the TOP (newest first)
-               const container = document.getElementById('forumPostsList');
+                const container = document.getElementById('forumPostsList');
                 let html = '';
+
                 data.posts.forEach(post => {
-                    // Only add if not already present!
+                    // CLIENT-SIDE GUARD: huwag i-insert kung hindi tugma sa kasalukuyang org filter
+                    // SWKS (All) => tanggap lahat; else kailangan tumugma ang post.org_id
+                    if (currentOrg !== 'SWKS' && String(post.org_id) !== String(currentOrg)) {
+                        return; // skip
+                    }
                     if (!document.getElementById('post-' + post.post_id)) {
                         html += renderForumPost(post);
+                        // track max id
                         latestPostId = Math.max(latestPostId, post.post_id);
                     }
                 });
-                // Insert BEFORE current posts
-                container.insertAdjacentHTML('afterbegin', html);
-                // (Optional) Notification: highlight new post, play sound, etc.
+
+                if (html) container.insertAdjacentHTML('afterbegin', html);
             }
         })
         .catch(err => {
             if (err && err.status === 401) {
                 alert("Session expired. Please log in again.");
             }
-            // You can also show errors in the UI if you wish
         });
 }
 
@@ -773,7 +780,7 @@ const editPostContent= document.getElementById('editPostContent');
 editPostForm.addEventListener('submit', async function(e){
   e.preventDefault();
   const fd = new FormData(this);
-  fd.append('mode','edit');
+  fd.append('action','update');
 
   const btn = this.querySelector('button[type="submit"]');
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -796,11 +803,13 @@ editPostForm.addEventListener('submit', async function(e){
   }
 });
 
+// delete (with SweetAlert confirm)
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.admin-delete-post');
   if (!btn) return;
   e.preventDefault();
 
+  // Confirm muna
   const res = await Swal.fire({
     icon: 'warning',
     title: 'Delete this post?',
@@ -812,32 +821,24 @@ document.addEventListener('click', async (e) => {
   });
   if (!res.isConfirmed) return;
 
+  // Send request
   const fd = new FormData();
-  fd.append('mode', 'remove');
+  fd.append('action', 'delete');
   fd.append('post_id', btn.dataset.postId);
 
   try {
-    const r   = await fetch('forum_post_admin_action.php', {
-      method: 'POST',
-      body: fd,
-      headers: { 'X-Requested-With': 'XMLHttpRequest' } // helps some hosts
-    });
-
-    const raw = await r.text(); // <-- read as text first
-    let data;
-    try { data = JSON.parse(raw); } catch (e) {
-      // Server didn’t send JSON; show raw output to debug
-      await Swal.fire({
-        icon: 'error',
-        title: 'Network error',
-        html: `<div style="text-align:left">Server returned non-JSON:<pre style="white-space:pre-wrap">${raw || '(empty response)'}</pre></div>`
-      });
-      return;
-    }
+    const r = await fetch('forum_post_admin_action.php', { method: 'POST', body: fd });
+    const data = await r.json();
 
     if (data?.ok) {
-      await Swal.fire({ icon: 'success', title: 'Deleted', timer: 900, showConfirmButton: false });
-      location.reload(); // fresh list, no stale DOM
+      await Swal.fire({
+        icon: 'success',
+        title: 'Deleted',
+        timer: 900,
+        showConfirmButton: false
+      });
+      // 🔁 Para maiwasan ang “second delete” glitch at sariwa ang list:
+      location.reload();
     } else {
       await Swal.fire({ icon: 'error', title: 'Error', text: data?.msg || 'Delete failed' });
     }
