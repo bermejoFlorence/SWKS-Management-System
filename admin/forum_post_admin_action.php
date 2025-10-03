@@ -17,7 +17,7 @@ ini_set('display_errors', '0'); // log server-side, don't echo
 
 const SWKS_ORG_ID = 11; // adjust if your SWKS org_id is different
 
-// tanggapin 'mode' (preferred) o 'action' (fallback) at i-map
+// accept 'mode' (preferred) or 'action' (fallback)
 $rawAction = $_POST['mode'] ?? $_POST['action'] ?? '';
 $action    = strtolower(trim($rawAction));
 if ($action === 'remove') $action = 'delete';
@@ -51,52 +51,72 @@ function load_post(mysqli $conn, int $postId): ?array {
 
 /**
  * Notify recipients for an edited/deleted post.
- * $orgId may be NULL (for true-general posts), SWKS_ORG_ID (for [SWKS] general),
- * or any specific org_id.
- * Remove the type hint entirely to allow NULL on older PHP.
+ * - For 'forum_post_deleted', we deliberately set post_id = NULL in the notification
+ *   to avoid FK violations (the post no longer exists).
+ * - For edits, we can keep the real post_id.
  */
 function notify_admin_action(
   mysqli $conn,
   $orgId,            // NULL | int
-  int $postId,
+  ?int $postIdForNotif, // NULL for deleted; real post_id for edited
   int $editorId,
   string $type,      // 'forum_post_edited' | 'forum_post_deleted'
   string $message
 ): bool {
   $isGeneral = (is_null($orgId) || (int)$orgId === SWKS_ORG_ID);
 
+  // Decide how to project post_id into the INSERT SELECT
+  $postIdSQL = is_null($postIdForNotif) ? "NULL" : "?"; // bind if not NULL
+  $bindPostId = !is_null($postIdForNotif);
+
   if ($isGeneral) {
     if (is_null($orgId)) {
-      // General with NULL org_id → inject literal NULL (don't bind as int)
+      // General with NULL org_id, and maybe NULL post_id
       $sql = "INSERT INTO notification (user_id, post_id, type, message, is_seen, created_at, org_id)
-              SELECT u.user_id, ?, ?, ?, 0, NOW(), NULL
+              SELECT u.user_id, {$postIdSQL}, ?, ?, 0, NOW(), NULL
               FROM user u
               WHERE u.user_id <> ?";
       $st = $conn->prepare($sql);
-      $st->bind_param('issi', $postId, $type, $message, $editorId);
+      if ($bindPostId) {
+        $st->bind_param('isii', $postIdForNotif, $type, $message, $editorId);
+      } else {
+        $st->bind_param('sii', $type, $message, $editorId);
+      }
     } else {
-      // General with SWKS org_id (e.g., 11) → bind normally
+      // General with explicit SWKS org_id
       $sql = "INSERT INTO notification (user_id, post_id, type, message, is_seen, created_at, org_id)
-              SELECT u.user_id, ?, ?, ?, 0, NOW(), ?
+              SELECT u.user_id, {$postIdSQL}, ?, ?, 0, NOW(), ?
               FROM user u
               WHERE u.user_id <> ?";
       $st = $conn->prepare($sql);
-      $st->bind_param('issii', $postId, $type, $message, $orgId, $editorId);
+      if ($bindPostId) {
+        $st->bind_param('isiii', $postIdForNotif, $type, $message, $orgId, $editorId);
+      } else {
+        $st->bind_param('siii', $type, $message, $orgId, $editorId);
+      }
     }
     $ok = $st->execute();
+    $err = $st->error;
     $st->close();
+    if (!$ok) error_log("[notify_admin_action] general failed: ".$err);
     return (bool)$ok;
   }
 
   // Org-specific
   $sql = "INSERT INTO notification (user_id, post_id, type, message, is_seen, created_at, org_id)
-          SELECT u.user_id, ?, ?, ?, 0, NOW(), ?
+          SELECT u.user_id, {$postIdSQL}, ?, ?, 0, NOW(), ?
           FROM user u
           WHERE u.org_id = ? AND u.user_id <> ?";
   $st = $conn->prepare($sql);
-  $st->bind_param('isiiii', $postId, $type, $message, $orgId, $orgId, $editorId);
+  if ($bindPostId) {
+    $st->bind_param('isiiii', $postIdForNotif, $type, $message, $orgId, $orgId, $editorId);
+  } else {
+    $st->bind_param('siiii', $type, $message, $orgId, $orgId, $editorId);
+  }
   $ok = $st->execute();
+  $err = $st->error;
   $st->close();
+  if (!$ok) error_log("[notify_admin_action] org-specific failed: ".$err);
   return (bool)$ok;
 }
 
@@ -132,6 +152,7 @@ if ($action === 'update') {
     ? "{$prefix}An admin edited a post: {$titleForMsg}"
     : "An admin edited a post in {$orgName}: {$titleForMsg}";
 
+  // For edit, we keep the real post_id in the notification
   notify_admin_action($conn, $orgId, $postId, $editorId, 'forum_post_edited', $msg);
 
   echo json_encode(['ok'=>true,'msg'=>'Updated']); exit;
@@ -139,39 +160,75 @@ if ($action === 'update') {
 
 // ---------- DELETE ----------
 if ($action === 'delete') {
-  // 1) Delete the post
-  $st = $conn->prepare("DELETE FROM forum_post WHERE post_id=?");
-  $st->bind_param('i', $postId);
-  $ok = $st->execute();
-  $err = $st->error;
-  $st->close();
+  $conn->begin_transaction();
+  try {
+    // 0) OPTIONAL: remove attachments table if you have it (uncomment if exists)
+    // $st = $conn->prepare("DELETE FROM forum_attachment WHERE post_id=?");
+    // $st->bind_param('i', $postId);
+    // $st->execute(); $st->close();
 
-  // 2) Verify it’s gone (treat “still exists” as failure)
-  $check = $conn->prepare("SELECT 1 FROM forum_post WHERE post_id=? LIMIT 1");
-  $check->bind_param('i', $postId);
-  $check->execute();
-  $check->store_result();
-  $exists = $check->num_rows > 0;
-  $check->close();
+    // 1) Remove dependent rows that likely have FKs to forum_post
+    if ($st = $conn->prepare("DELETE FROM forum_comment WHERE post_id=?")) {
+      $st->bind_param('i', $postId);
+      $st->execute(); $st->close();
+    }
+    if ($st = $conn->prepare("DELETE FROM forum_reaction WHERE post_id=?")) { // if you have this table
+      $st->bind_param('i', $postId);
+      $st->execute(); $st->close();
+    }
+    if ($st = $conn->prepare("DELETE FROM notification WHERE post_id=?")) {
+      $st->bind_param('i', $postId);
+      $st->execute(); $st->close();
+    }
 
-  if (!$ok || $exists) {
-    echo json_encode(['ok'=>false,'msg'=>'Delete failed','sql_error'=>$err]); exit;
+    // 2) Delete the post itself
+    $st = $conn->prepare("DELETE FROM forum_post WHERE post_id=?");
+    $st->bind_param('i', $postId);
+    $ok = $st->execute();
+    $err = $st->error;
+    $st->close();
+
+    if (!$ok) {
+      $conn->rollback();
+      echo json_encode(['ok'=>false,'msg'=>'Delete failed','sql_error'=>$err]); exit;
+    }
+
+    // 3) Verify gone (optional)
+    $check = $conn->prepare("SELECT 1 FROM forum_post WHERE post_id=? LIMIT 1");
+    $check->bind_param('i', $postId);
+    $check->execute();
+    $check->store_result();
+    $exists = $check->num_rows > 0;
+    $check->close();
+
+    if ($exists) {
+      $conn->rollback();
+      echo json_encode(['ok'=>false,'msg'=>'Delete failed (still exists)']); exit;
+    }
+
+    // 4) Commit deletion of the post + its dependents
+    $conn->commit();
+
+    // 5) Compose message (values captured before deletion)
+    $isGeneral = (is_null($orgId) || (int)$orgId === SWKS_ORG_ID);
+    $msg = $isGeneral
+      ? (is_null($orgId) ? "An admin deleted a post: {$titleForMsg}"
+                         : "[{$orgName}] An admin deleted a post: {$titleForMsg}")
+      : "An admin deleted a post in {$orgName}: {$titleForMsg}";
+
+    // 6) Send notifications with NULL post_id to avoid FK violations after deletion
+    $okN = notify_admin_action($conn, $orgId, null, $editorId, 'forum_post_deleted', $msg);
+    if (!$okN) {
+      echo json_encode(['ok'=>false,'msg'=>'Deleted, but notifications failed']); exit;
+    }
+
+    echo json_encode(['ok'=>true,'msg'=>'Deleted']); exit;
+
+  } catch (Throwable $e) {
+    $conn->rollback();
+    error_log("[forum_post_admin_action delete] exception: ".$e->getMessage());
+    echo json_encode(['ok'=>false,'msg'=>'Delete failed (exception)']); exit;
   }
-
-  // 3) Compose message (using values loaded *before* deletion)
-  $isGeneral = (is_null($orgId) || (int)$orgId === SWKS_ORG_ID);
-  $msg = $isGeneral
-    ? (is_null($orgId) ? "An admin deleted a post: {$titleForMsg}"
-                       : "[{$orgName}] An admin deleted a post: {$titleForMsg}")
-    : "An admin deleted a post in {$orgName}: {$titleForMsg}";
-
-  // 4) Send notifications without joining the deleted row
-  $okN = notify_admin_action($conn, $orgId, $postId, $editorId, 'forum_post_deleted', $msg);
-  if (!$okN) {
-    echo json_encode(['ok'=>false,'msg'=>'Deleted, but notifications failed']); exit;
-  }
-
-  echo json_encode(['ok'=>true,'msg'=>'Deleted']); exit;
 }
 
 // Fallback
