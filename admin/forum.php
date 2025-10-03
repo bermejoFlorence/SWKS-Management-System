@@ -796,7 +796,7 @@ editPostForm.addEventListener('submit', async function(e){
   }
 });
 
-/// delete (with SweetAlert confirm)
+// delete (with SweetAlert confirm)
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.admin-delete-post');
   if (!btn) return;
