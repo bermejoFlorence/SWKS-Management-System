@@ -1,4 +1,6 @@
 <?php
+error_log("hit forum_post_admin_action with method=" . $_SERVER['REQUEST_METHOD']);
+
 // admin/forum_post_admin_action.php
 include_once __DIR__ . '/includes/auth_admin.php';
 include_once __DIR__ . '/../database/db_connection.php';
