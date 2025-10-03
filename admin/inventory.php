@@ -188,11 +188,6 @@ if ($requestsQ && $requestsQ->num_rows) {
                            data-image="/swks/<?= htmlspecialchars($row['image']) ?>">
                           <i class="bi bi-pencil me-1"></i>Edit
                         </a>
-
-                        <a href="update_item_status.php?action=deactivate&item_id=<?= $row['item_id'] ?>"
-                           class="btn btn-sm btn-danger rounded-pill px-3 fw-semibold d-inline-flex align-items-center">
-                          <i class="bi bi-x-circle me-1"></i>Deactivate
-                        </a>
                       </div>
                     </td>
                   </tr>
