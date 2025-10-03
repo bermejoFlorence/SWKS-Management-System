@@ -828,44 +828,34 @@ body, html {
 .notification-dropdown .dropdown-menu::-webkit-scrollbar-thumb{
   background: #d7e6da; border-radius: 8px;
 }
-/* Container tweaks */
+/* Logo container */
 .sidebar .logo {
-  padding: 14px 16px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
+  justify-content: center;   /* center the image */
+  overflow: hidden;          /* never spill outside */
 }
 
-/* Responsive logo sizing */
+/* Medium-by-default, responsive, no overflow */
+.sidebar { --logo-size: 56px; }              /* base */
 .sidebar .swks-logo {
   display: block;
-  width: auto;                 /* keep aspect ratio */
-  height: clamp(52px, 6vw, 80px); /* responsive: min 52px, scales with vw, max 80px */
-  max-width: 100%;            /* prevents overflow if sidebar is narrow */
-  image-rendering: -webkit-optimize-contrast;
+  height: var(--logo-size);
+  width: auto;               /* keep aspect ratio */
+  max-width: 100%;           /* never exceed sidebar width */
+  object-fit: contain;
 }
 
-/* Smaller on very small screens */
+/* Slightly smaller on narrow phones */
 @media (max-width: 576px){
-  .sidebar .swks-logo {
-    height: 48px;
-  }
+  .sidebar { --logo-size: 48px; }
 }
 
-/* If your sidebar has a collapsed state, keep the logo readable */
-.sidebar.collapsed .swks-logo {
-  height: 36px;
-  margin: 0 auto; /* center in narrow column */
+/* Slightly bigger on wide desktops */
+@media (min-width: 1200px){
+  .sidebar { --logo-size: 60px; }
 }
 
-/* Optional: Make the logo link a comfy hit area */
-.swks-logo-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Optional: if your logo has transparent background and sidebar is dark,
-   a subtle shadow helps it pop (remove if not needed) */
-.sidebar .swks-logo {
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.15));
-}
+/* If you have a collapsed sidebar state */
+.sidebar.collapsed { --logo-size: 40px; }
