@@ -113,52 +113,59 @@ if ($action === 'update') {
 }
 
 if ($action === 'delete') {
-  // Compose message BEFORE deleting
-  $isGeneral = (is_null($orgId) || (int)$orgId === SWKS_ORG_ID);
-  $prefix    = $isGeneral ? (is_null($orgId) ? '' : "[{$orgName}] ") : '';
-  $msg       = $isGeneral
-    ? "{$prefix}An admin deleted a post: {$titleForMsg}"
-    : "An admin deleted a post in {$orgName}: {$titleForMsg}";
+  // we already loaded $post (title/org) above
+  $orgId     = $post['org_id'];                 // may be NULL
+  $orgName   = $post['org_name'] ?: 'SWKS';
+  $origTitle = trim((string)($post['title'] ?? ''));
+  $titleForMsg = $origTitle !== '' ? $origTitle : 'Untitled';
 
-  // Delete in a transaction: comments -> notifications -> post
-  $conn->begin_transaction();
-  try {
-    // 1) Remove comments referencing the post
-    if ($st = $conn->prepare("DELETE FROM forum_comment WHERE post_id=?")) {
-      $st->bind_param('i', $postId);
-      $st->execute();
-      $st->close();
-    }
+  // 1) Try to delete
+  $st = $conn->prepare("DELETE FROM forum_post WHERE post_id=?");
+  $st->bind_param('i', $postId);
+  $execOk = $st->execute();
+  $stmtErrno = $st->errno;   // capture errno BEFORE closing
+  $st->close();
 
-    // 2) Remove existing notifications for this post (cleanup)
-    if ($st = $conn->prepare("DELETE FROM notification WHERE post_id=?")) {
-      $st->bind_param('i', $postId);
-      $st->execute();
-      $st->close();
-    }
+  // 2) Double-check if the row is really gone (host-safe)
+  $check = $conn->prepare("SELECT 1 FROM forum_post WHERE post_id=? LIMIT 1");
+  $check->bind_param('i', $postId);
+  $check->execute();
+  $check->store_result();
+  $exists = $check->num_rows > 0;
+  $check->close();
 
-    // 3) Delete the post itself
-    $st = $conn->prepare("DELETE FROM forum_post WHERE post_id=?");
-    $st->bind_param('i', $postId);
-    $st->execute();
-    $affected = $st->affected_rows;
-    $st->close();
-
-    if ($affected <= 0) {
-      throw new Exception('Delete failed');
-    }
-
-    $conn->commit();
-
-    // 4) Send delete notifications AFTER commit (we already have $orgId)
-    notify_admin_action($conn, $orgId, $postId, $editorId, 'forum_post_deleted', $msg);
-
-    echo json_encode(['ok'=>true,'msg'=>'Deleted']); exit;
-
-  } catch (Throwable $e) {
-    $conn->rollback();
+  if ($stmtErrno && $exists) {
     echo json_encode(['ok'=>false,'msg'=>'Delete failed']); exit;
   }
+
+  // 3) Compose notif message (no JOINs to forum_post anymore)
+  $isGeneral = (is_null($orgId) || (int)$orgId === SWKS_ORG_ID);
+  $msg = $isGeneral
+    ? (is_null($orgId) ? "An admin deleted a post: {$titleForMsg}"
+                       : "[{$orgName}] An admin deleted a post: {$titleForMsg}")
+    : "An admin deleted a post in {$orgName}: {$titleForMsg}";
+
+  // 4) Notify without joining the deleted table
+  if ($isGeneral) {
+    $sql = "INSERT INTO notification (user_id, post_id, type, message, is_seen, created_at, org_id)
+            SELECT u.user_id, ?, 'forum_post_deleted', ?, 0, NOW(), ?
+            FROM user u WHERE u.user_id <> ?";
+    $stN = $conn->prepare($sql);
+    $orgForNotif = $orgId; // may be NULL or 11
+    $stN->bind_param('isii', $postId, $msg, $orgForNotif, $editorId);
+    $stN->execute();
+    $stN->close();
+  } else {
+    $sql = "INSERT INTO notification (user_id, post_id, type, message, is_seen, created_at, org_id)
+            SELECT u.user_id, ?, 'forum_post_deleted', ?, 0, NOW(), ?
+            FROM user u WHERE u.org_id = ? AND u.user_id <> ?";
+    $stN = $conn->prepare($sql);
+    $stN->bind_param('isiii', $postId, $msg, $orgId, $orgId, $editorId);
+    $stN->execute();
+    $stN->close();
+  }
+
+  echo json_encode(['ok'=>true,'msg'=>'Deleted']); exit;
 }
 
 echo json_encode(['ok'=>false,'msg'=>'Unsupported action']);
