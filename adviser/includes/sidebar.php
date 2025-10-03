@@ -3,7 +3,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 // Build a correct web URL to /<role>/includes/logo.png regardless of the page
 $baseUrl = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');   // e.g. /swks/admin  | /swks/adviser | /swks/member
-$logoUrl = $baseUrl . '/includes/logo.png';
+$logoUrl = $baseUrl . '/swks/admin/includes/logo.png';
 
 // (optional) fallback check: if logo is missing, we'll show text instead
 $logoExists = is_file(rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $logoUrl);
