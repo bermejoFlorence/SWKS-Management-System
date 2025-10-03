@@ -796,13 +796,11 @@ editPostForm.addEventListener('submit', async function(e){
   }
 });
 
-// delete (with SweetAlert confirm)
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.admin-delete-post');
   if (!btn) return;
   e.preventDefault();
 
-  // Confirm muna
   const res = await Swal.fire({
     icon: 'warning',
     title: 'Delete this post?',
@@ -814,24 +812,32 @@ document.addEventListener('click', async (e) => {
   });
   if (!res.isConfirmed) return;
 
-  // Send request
   const fd = new FormData();
   fd.append('action', 'delete');
   fd.append('post_id', btn.dataset.postId);
 
   try {
-    const r = await fetch('forum_post_admin_action.php', { method: 'POST', body: fd });
-    const data = await r.json();
+    const r   = await fetch('forum_post_admin_action.php', {
+      method: 'POST',
+      body: fd,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' } // helps some hosts
+    });
+
+    const raw = await r.text(); // <-- read as text first
+    let data;
+    try { data = JSON.parse(raw); } catch (e) {
+      // Server didn’t send JSON; show raw output to debug
+      await Swal.fire({
+        icon: 'error',
+        title: 'Network error',
+        html: `<div style="text-align:left">Server returned non-JSON:<pre style="white-space:pre-wrap">${raw || '(empty response)'}</pre></div>`
+      });
+      return;
+    }
 
     if (data?.ok) {
-      await Swal.fire({
-        icon: 'success',
-        title: 'Deleted',
-        timer: 900,
-        showConfirmButton: false
-      });
-      // 🔁 Para maiwasan ang “second delete” glitch at sariwa ang list:
-      location.reload();
+      await Swal.fire({ icon: 'success', title: 'Deleted', timer: 900, showConfirmButton: false });
+      location.reload(); // fresh list, no stale DOM
     } else {
       await Swal.fire({ icon: 'error', title: 'Error', text: data?.msg || 'Delete failed' });
     }

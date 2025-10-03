@@ -6,6 +6,14 @@ include_once __DIR__ . '/../database/db_connection.php';
 header('Content-Type: application/json; charset=utf-8');
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
+// ensure nothing else was already buffered (warnings/whitespace)
+while (ob_get_level() > 0) { ob_end_clean(); }
+ini_set('display_errors', '0');   // log server-side; don't print into JSON
+
 const SWKS_ORG_ID = 11; // adjust if needed
 
 $action   = strtolower(trim($_POST['action'] ?? ''));
