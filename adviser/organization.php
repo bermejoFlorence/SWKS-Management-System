@@ -237,22 +237,31 @@ th.col-action { width: 180px; }   /* dati 150px */
       <td><?= $joined ? htmlspecialchars(date('M d, Y', strtotime($joined))) : '—' ?></td>
 
       <!-- Action -->
-      <td class="text-center">
-        <?php if ($statusNorm === 'approved'): ?>
-          <button
-            type="button"
-            class="btn btn-pill-danger btn-deactivate"
-            data-member-id="<?= (int)$m['member_id'] ?>"
-            data-member-name="<?= htmlspecialchars($m['full_name']) ?>"
-          >
-            <i class="bi bi-slash-circle"></i><span>Deactivate</span>
-          </button>
-        <?php else: ?>
-          <button type="button" class="btn btn-pill-muted" disabled>
-            <i class="bi bi-slash-circle"></i><span>Deactivated</span>
-          </button>
-        <?php endif; ?>
-      </td>
+<td class="text-center">
+  <div class="d-grid gap-2">
+    <?php if ($statusNorm === 'approved'): ?>
+      <button
+        type="button"
+        class="btn btn-pill-danger btn-deactivate w-100"
+        data-member-id="<?= (int)$m['member_id'] ?>"
+        data-member-name="<?= htmlspecialchars($m['full_name']) ?>"
+      >
+        <i class="bi bi-slash-circle"></i><span>Deactivate</span>
+      </button>
+    <?php else: ?>
+      <button type="button" class="btn btn-pill-muted w-100" disabled>
+        <i class="bi bi-slash-circle"></i><span>Deactivated</span>
+      </button>
+    <?php endif; ?>
+
+    <!-- View Details with icon -->
+  <a href="member_view.php?id=<?= (int)$m['member_id'] ?>" class="btn btn-pill-brand w-100">
+  <i class="bi bi-eye"></i><span>View Details</span>
+</a>
+
+  </div>
+</td>
+
     </tr>
   <?php endforeach; ?>
 <?php endif; ?>

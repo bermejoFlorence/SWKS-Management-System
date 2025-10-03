@@ -520,8 +520,9 @@ function isPast(date, compareStartOfDay = true) {
       switchToFormMode(false, 'Add Event');
       setDateFromDay(selectedDay);             // set hidden date
       if (!info.allDay) {                      // prefill times if timed
-        startTime.value = toLocalHM(info.start);
-        if (info.end) endTime.value = toLocalHM(info.end);
+        startTime.value = toPH_HM(info.start);
+if (info.end) endTime.value = toPH_HM(info.end);
+
         allDayHid.value = '0';
       } else {
         startTime.value = ''; endTime.value = '';
@@ -532,11 +533,11 @@ function isPast(date, compareStartOfDay = true) {
     },
 
     // Click event => edit (form mode)
-   eventClick: (info) => {
+eventClick: async (info) => {
   if (modalOpen) return;
-  const e = info.event;
+  const e = info.event; // ← use only `e` here
 
-  // 🔒 view-only kapag hindi ikaw ang gumawa
+  // view-only kapag hindi ikaw ang gumawa
   if (!e.extendedProps?.owned) {
     Swal.fire({
       icon: 'info',
@@ -548,24 +549,58 @@ function isPast(date, compareStartOfDay = true) {
     return;
   }
 
-  selectedDay = startOfDay(e.start || new Date());
-  switchToFormMode(true, 'Edit Event');
+  try {
+    // snapshot mula DB (same folder)
+    const res  = await fetch('events_get.php?id=' + encodeURIComponent(e.id));
+    const data = await res.json();
+    if (!data?.ok) throw new Error(data?.msg || 'Fetch failed');
 
-  document.getElementById('event_id').value = e.id;
-  titleInp.value = e.title;
-  colorInp.value = e.backgroundColor || '#198754';
-  descInp.value  = e.extendedProps?.description || '';
+    switchToFormMode(true, 'Edit Event');
 
-  startHidden.value = e.startStr || '';
-  endHidden.value   = e.endStr   || '';
-  allDayHid.value   = e.allDay ? '1' : '0';
+    // keys + basics
+    document.getElementById('event_id').value = data.id;
+    titleInp.value = data.title || '';
+    colorInp.value = data.color || '#198754';
+    descInp.value  = data.description || '';
 
-  startTime.value = (!e.allDay && e.start) ? toLocalHM(e.start) : '';
-  endTime.value   = (!e.allDay && e.end)   ? toLocalHM(e.end)   : '';
+    // hidden datetime fields
+    startHidden.value = data.start || '';
+    endHidden.value   = data.end   || '';
+    allDayHid.value   = data.allDay ? '1' : '0';
 
-  modal.show();
+    // time inputs (Asia/Manila)
+    if (data.allDay) {
+      startTime.value = '';
+      endTime.value   = '';
+      selectedDay     = startOfDay(new Date((data.start || '').slice(0,10)));
+    } else {
+      startTime.value = toPH_HM(data.start);
+      endTime.value   = data.end ? toPH_HM(data.end) : '';
+      selectedDay     = startOfDay(new Date(data.start));
+    }
+
+    modal.show();
+
+  } catch (err) {
+    // fallback gamit ang event object ng calendar
+    selectedDay = startOfDay(e.start || new Date());
+    switchToFormMode(true, 'Edit Event');
+
+    document.getElementById('event_id').value = e.id;
+    titleInp.value = e.title;
+    colorInp.value = e.backgroundColor || '#198754';
+    descInp.value  = e.extendedProps?.description || '';
+
+    startHidden.value = e.startStr || '';
+    endHidden.value   = e.endStr   || '';
+    allDayHid.value   = e.allDay ? '1' : '0';
+
+    startTime.value = (!e.allDay && e.start) ? toPH_HM(e.start) : '';
+    endTime.value   = (!e.allDay && e.end)   ? toPH_HM(e.end)   : '';
+
+    modal.show();
+  }
 },
-
 
     // Drag/resize quick save
     editable: true,
@@ -644,18 +679,48 @@ function isPast(date, compareStartOfDay = true) {
     `;
 
     // === Handlers only if owned ===
-    item.querySelector('.edit-ev')?.addEventListener('click', () => {
-      switchToFormMode(true, 'Edit Event');
-      document.getElementById('event_id').value = ev.id;
-      titleInp.value = ev.title;
-      colorInp.value = ev.backgroundColor || '#198754';
-      descInp.value  = ev.extendedProps?.description || '';
-      startHidden.value = ev.startStr || '';
-      endHidden.value   = ev.endStr   || '';
-      allDayHid.value   = ev.allDay ? '1' : '0';
-      startTime.value   = (!ev.allDay && ev.start) ? toLocalHM(ev.start) : '';
-      endTime.value     = (!ev.allDay && ev.end)   ? toLocalHM(ev.end)   : '';
-    });
+item.querySelector('.edit-ev')?.addEventListener('click', async () => {
+  try {
+    const res  = await fetch('events_get.php?id=' + encodeURIComponent(ev.id));
+    const data = await res.json();
+    if (!data?.ok) throw new Error(data?.msg || 'Fetch failed');
+
+    switchToFormMode(true, 'Edit Event');
+
+    document.getElementById('event_id').value = data.id;
+    titleInp.value = data.title || '';
+    colorInp.value = data.color || '#198754';
+    descInp.value  = data.description || '';
+
+    startHidden.value = data.start || '';
+    endHidden.value   = data.end   || '';
+    allDayHid.value   = data.allDay ? '1' : '0';
+
+    if (data.allDay) {
+      startTime.value = '';
+      endTime.value   = '';
+      selectedDay     = startOfDay(new Date((data.start || '').slice(0,10)));
+    } else {
+      startTime.value = toPH_HM(data.start);
+      endTime.value   = data.end ? toPH_HM(data.end) : '';
+      selectedDay     = startOfDay(new Date(data.start));
+    }
+
+  } catch (err) {
+    // fallback kung may error
+    switchToFormMode(true, 'Edit Event');
+    document.getElementById('event_id').value = ev.id;
+    titleInp.value = ev.title;
+    colorInp.value = ev.backgroundColor || '#198754';
+    descInp.value  = ev.extendedProps?.description || '';
+    startHidden.value = ev.startStr || '';
+    endHidden.value   = ev.endStr   || '';
+    allDayHid.value   = ev.allDay ? '1' : '0';
+    startTime.value   = (!ev.allDay && ev.start) ? toPH_HM(ev.start) : '';
+    endTime.value     = (!ev.allDay && ev.end)   ? toPH_HM(ev.end)   : '';
+  }
+});
+
 
     item.querySelector('.del-ev')?.addEventListener('click', async () => {
       const { isConfirmed } = await Swal.fire({
@@ -793,6 +858,45 @@ function isPast(date, compareStartOfDay = true) {
       calendar.refetchEvents();
     }
   }
+  // Delete from EDIT modal
+deleteBtn.addEventListener('click', async () => {
+  const id = document.getElementById('event_id').value;
+  if (!id) {
+    Swal.fire({ icon: 'warning', title: 'No event selected' });
+    return;
+  }
+
+  const { isConfirmed } = await Swal.fire({
+    icon: 'warning',
+    title: 'Delete this event?',
+    text: 'This cannot be undone.',
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc3545'
+  });
+  if (!isConfirmed) return;
+
+  try {
+    const fd = new FormData();
+    fd.append('event_id', id);
+
+    const res  = await fetch('events_delete.php', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!data?.ok) throw new Error(data?.msg || 'Delete failed');
+
+    await Swal.fire({ icon: 'success', title: 'Event deleted', timer: 900, showConfirmButton: false });
+
+    modal.hide();                // isara ang modal
+    calendar.refetchEvents();    // refresh calendar
+    // optional: kung nasa Day List view ka, i-refresh din
+    if (selectedDay) renderDayList(selectedDay);
+
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: String(err.message || err) });
+  }
+});
+
 
   // Utils
   function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
@@ -810,8 +914,26 @@ function isPast(date, compareStartOfDay = true) {
   }
   function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 });
-</script>
+function toPH_HM(dateOrIso){
+  if (!dateOrIso) return '';
 
+  // Kung string na "YYYY-MM-DDTHH:MM:SS" o "YYYY-MM-DD HH:MM:SS" (walang Z/offset),
+  // huwag na i-new Date(); direktang kunin ang HH:MM para walang timezone shift.
+  if (typeof dateOrIso === 'string') {
+    const s = dateOrIso.replace(' ', 'T');
+    const m = s.match(/T(\d{2}:\d{2})/);
+    if (m) return m[1];        // exact time as saved in DB (Asia/Manila local)
+  }
+
+  // Kung Date object (galing FullCalendar), i-format sa Asia/Manila
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Manila'
+  });
+  return fmt.format(dateOrIso);
+}
+
+
+</script>
 
 </body>
 </html>

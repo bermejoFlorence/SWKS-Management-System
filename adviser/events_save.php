@@ -2,7 +2,10 @@
 include 'includes/auth_adviser.php';
 include_once '../database/db_connection.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
+
+/* ---- Timezone: Asia/Manila (PHP + MySQL session) ---- */
 date_default_timezone_set('Asia/Manila');
+@$conn->query("SET time_zone = '+08:00'");
 
 header('Content-Type: application/json');
 
@@ -14,6 +17,7 @@ if (!$org_id || !$user_id) {
   exit;
 }
 
+/* ---------- Inputs ---------- */
 $event_id    = isset($_POST['event_id']) && $_POST['event_id'] !== '' ? (int)$_POST['event_id'] : null;
 $title       = trim($_POST['title'] ?? '');
 $startIso    = $_POST['start'] ?? '';
@@ -28,16 +32,61 @@ if ($title === '' || $startIso === '') {
   exit;
 }
 
-$startDT = date('Y-m-d H:i:s', strtotime($startIso));
-$endDT   = $endIso ? date('Y-m-d H:i:s', strtotime($endIso)) : null;
-if ($endDT && $endDT < $startDT) {
+/* ---------- Helpers: parse ISO/local strings as Asia/Manila ---------- */
+$TZ_PH = new DateTimeZone('Asia/Manila');
+
+function parse_local_or_iso(?string $s, DateTimeZone $tz): ?DateTime {
+  if (!$s) return null;
+
+  // YYYY-MM-DD only (all-day)
+  if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+    return DateTime::createFromFormat('Y-m-d H:i:s', $s.' 00:00:00', $tz);
+  }
+
+  // May explicit offset? (Z or +hh:mm / -hh:mm)
+  $hasOffset = (bool)preg_match('/(Z|[+\-]\d{2}:\d{2})$/', $s);
+  if ($hasOffset) {
+    // Respect the embedded offset
+    return new DateTime($s);
+  }
+
+  // Walang offset ⇒ interpret as Asia/Manila local
+  return new DateTime($s, $tz);
+}
+
+/* ---------- Normalize datetimes to SQL (local) ---------- */
+$startDTobj = parse_local_or_iso($startIso, $TZ_PH);
+$endDTobj   = parse_local_or_iso($endIso,   $TZ_PH);
+
+if ($allDay) {
+  // For all-day events, store start at 00:00:00; ignore end
+  $startDT = $startDTobj ? $startDTobj->format('Y-m-d 00:00:00') : null;
+  $endDT   = null;
+} else {
+  $startDT = $startDTobj ? $startDTobj->format('Y-m-d H:i:s') : null;
+  $endDT   = $endDTobj   ? $endDTobj->format('Y-m-d H:i:s')   : null;
+}
+
+/* Guard: end before start */
+if ($endDT && $startDT && $endDT < $startDT) {
   http_response_code(422);
   echo json_encode(['ok'=>false,'msg'=>'End must be after start']);
   exit;
 }
 
+/* Optional guard: end time provided but no start time component */
+if (!$allDay && !$startDTobj) {
+  http_response_code(422);
+  echo json_encode(['ok'=>false,'msg'=>'Invalid start datetime']);
+  exit;
+}
+
+/* Default color if empty */
+if ($color === '') $color = '#198754';
+
+/* ---------- Upsert ---------- */
 if ($event_id) {
-  // ✅ Only allow update if the event belongs to the same org AND was created by this adviser
+  // Update only if same org & created by this adviser (owner)
   $stmt = $conn->prepare("
     UPDATE org_events
        SET title = ?, start_datetime = ?, end_datetime = ?, all_day = ?, description = ?, color = ?, updated_at = NOW()
@@ -48,21 +97,20 @@ if ($event_id) {
     echo json_encode(['ok'=>false,'msg'=>'Prepare failed']);
     exit;
   }
-  // types: sssissiii  (title s, start s, end s, all_day i, desc s, color s, event_id i, org_id i, created_by i)
+  // types: s s s i s s i i i
   $stmt->bind_param('sssissiii', $title, $startDT, $endDT, $allDay, $description, $color, $event_id, $org_id, $user_id);
   $stmt->execute();
 
   if ($stmt->affected_rows > 0) {
     echo json_encode(['ok'=>true, 'id'=>$event_id]);
   } else {
-    // either not found, not your org, or not the owner
     http_response_code(403);
     echo json_encode(['ok'=>false,'msg'=>'Not allowed to edit this event']);
   }
   $stmt->close();
 
 } else {
-  // Insert: event is owned by the adviser creating it
+  // Insert: owned by creating adviser
   $stmt = $conn->prepare("
     INSERT INTO org_events
       (org_id, title, start_datetime, end_datetime, all_day, description, color, created_by)
