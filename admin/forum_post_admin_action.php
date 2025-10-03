@@ -17,7 +17,12 @@ ini_set('display_errors', '0'); // log server-side, don't echo
 
 const SWKS_ORG_ID = 11; // adjust if your SWKS org_id is different
 
-$action   = strtolower(trim($_POST['action'] ?? ''));
+// tanggapin 'mode' (preferred) o 'action' (fallback) at i-map
+$rawAction = $_POST['mode'] ?? $_POST['action'] ?? '';
+$action    = strtolower(trim($rawAction));
+if ($action === 'remove') $action = 'delete';
+if ($action === 'edit')   $action = 'update';
+
 $postId   = (int)($_POST['post_id'] ?? 0);
 $editorId = (int)($_SESSION['user_id'] ?? 0);
 

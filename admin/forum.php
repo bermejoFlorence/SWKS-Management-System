@@ -773,7 +773,7 @@ const editPostContent= document.getElementById('editPostContent');
 editPostForm.addEventListener('submit', async function(e){
   e.preventDefault();
   const fd = new FormData(this);
-  fd.append('action','update');
+  fd.append('mode','edit');
 
   const btn = this.querySelector('button[type="submit"]');
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -813,7 +813,7 @@ document.addEventListener('click', async (e) => {
   if (!res.isConfirmed) return;
 
   const fd = new FormData();
-  fd.append('action', 'delete');
+  fd.append('mode', 'remove');
   fd.append('post_id', btn.dataset.postId);
 
   try {
