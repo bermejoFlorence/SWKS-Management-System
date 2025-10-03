@@ -15,18 +15,22 @@ if (!$itemsQ) {
  * Returns null if file not found.
  */
 function resolve_web_image($rawPath) {
-    $p = str_replace('\\', '/', trim($rawPath ?? '', " \t\n\r\0\x0B/"));
+    // normalize
+    $p = str_replace('\\', '/', trim((string)$rawPath));
     if ($p === '') return null;
 
-    $web = "/swks/{$p}";
-    $abs = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $web;
-    if (file_exists($abs)) return $web;
-
-    if (str_starts_with($p, 'swks/')) {
-        $web2 = '/' . $p;
-        $abs2 = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $web2;
-        if (file_exists($abs2)) return $web2;
+    // alisin anumang leading slashes at optional "swks/"
+    $p = ltrim($p, '/');
+    if (strpos($p, 'swks/') === 0) {
+        $p = substr($p, 5); // drop leading "swks/"
     }
+
+    // try to serve from document root (no /swks prefix in URL)
+    $doc = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\');
+    $abs = $doc . '/' . $p;
+    if (file_exists($abs)) return '/' . $p;
+
+    // last resort: wala — hayaan bumagsak sa placeholder
     return null;
 }
 
@@ -175,7 +179,15 @@ function badge_for_status($status) {
                 <?php if ($imgWeb): ?>
                   <img src="<?= $imgWeb ?>" alt="<?= $nameEsc ?>">
                 <?php else: ?>
-                  <img src="/swks/assets/no-image.png" alt="No image">
+                  <?php $placeholder = resolve_web_image('assets/no-image.png') ?: '/assets/no-image.png'; ?>
+
+<!-- card -->
+<img src="<?= $imgWeb ?: $placeholder ?>" alt="<?= $nameEsc ?: 'No image' ?>">
+
+<!-- sa table row thumbnail -->
+<?php $thumb = resolve_web_image($r['item_image'] ?? '') ?: $placeholder; ?>
+<img src="<?= $thumb ?>" class="req-thumb" alt="<?= $name ?>">
+
                 <?php endif; ?>
                 <div class="card-body">
                   <div class="inventory-title"><?= $nameEsc ?></div>
