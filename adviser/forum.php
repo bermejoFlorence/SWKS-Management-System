@@ -146,7 +146,7 @@ while ($row = $result->fetch_assoc()) {
                     <form id="forumPostForm" action="forum_post_action.php<?= isset($_GET['organization']) ? '?organization=' . urlencode($_GET['organization']) : ''; ?>" method="post" enctype="multipart/form-data" class="d-flex flex-column flex-md-row align-items-center gap-2" autocomplete="off">
                         <div class="w-100 mb-2 mb-md-0">
                             <input type="text" class="form-control mb-2" name="title" placeholder="Title (optional)">
-                            <textarea class="form-control" name="post_content" rows="2" placeholder="Write something"></textarea>
+                            <textarea class="form-control" name="post_content" rows="2" placeholder="Write something" required></textarea>
                             <div id="attachment-preview" class="mt-1 ms-1"></div>
                         </div>
                         <label class="btn btn-outline-secondary mb-2 mb-md-0 d-flex align-items-center justify-content-center" style="max-width: 44px; height: 44px;" title="Attach file">
