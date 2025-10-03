@@ -25,15 +25,21 @@ if ($sideDirDisk && $docRoot && strpos($sideDirDisk, $docRoot) === 0) {
     <button class="close-sidebar" onclick="toggleSidebar()" tabindex="0" aria-label="Close sidebar">
         <i class="bi bi-x"></i>
     </button>
-   <div class="logo">
+<div class="logo">
   <a href="index.php" class="swks-logo-link" aria-label="SWKS Home">
     <?php if ($logoExists): ?>
-      <img src="<?= htmlspecialchars($logoUrl . $logoQ) ?>" alt="SWKS" class="swks-logo" style="height:40px;width:auto;display:block;">
+      <img
+        src="<?= htmlspecialchars($logoUrl . $logoQ) ?>"
+        alt="SWKS"
+        class="swks-logo"
+        decoding="async"
+      >
     <?php else: ?>
       <span class="swks-logo-text">SWKS</span>
     <?php endif; ?>
   </a>
 </div>
+
 
     <ul>
         <li class="<?= $currentPage == 'index.php' ? 'active' : '' ?>">
