@@ -828,34 +828,3 @@ body, html {
 .notification-dropdown .dropdown-menu::-webkit-scrollbar-thumb{
   background: #d7e6da; border-radius: 8px;
 }
-/* Logo container */
-.sidebar .logo {
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;   /* center the image */
-  overflow: hidden;          /* never spill outside */
-}
-
-/* Medium-by-default, responsive, no overflow */
-.sidebar { --logo-size: 56px; }              /* base */
-.sidebar .swks-logo {
-  display: block;
-  height: var(--logo-size);
-  width: auto;               /* keep aspect ratio */
-  max-width: 100%;           /* never exceed sidebar width */
-  object-fit: contain;
-}
-
-/* Slightly smaller on narrow phones */
-@media (max-width: 576px){
-  .sidebar { --logo-size: 48px; }
-}
-
-/* Slightly bigger on wide desktops */
-@media (min-width: 1200px){
-  .sidebar { --logo-size: 60px; }
-}
-
-/* If you have a collapsed sidebar state */
-.sidebar.collapsed { --logo-size: 40px; }
