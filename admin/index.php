@@ -607,11 +607,15 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
       const endOfDay   = d=>{ const x=new Date(d); x.setHours(23,59,59,999); return x; };
       const toYMD      = d=>{ const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
       const toLocalHM  = d=>{ const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; };
-      function formatTimeRange(s,e){
-        const opt={hour:'numeric',minute:'2-digit'};
-        const st=s?s.toLocaleTimeString([],opt):''; const et=e?e.toLocaleTimeString([],opt):'';
-        return (st&&et)?`${st} – ${et}`:st;
-      }
+      + function formatTimeRange(s,e){
+   const fmt = new Intl.DateTimeFormat('en-PH',{
+     hour:'numeric', minute:'2-digit', timeZone:'Asia/Manila'
+   });
+   const st = s ? fmt.format(s) : '';
+   const et = e ? fmt.format(e) : '';
+   return (st && et) ? `${st} – ${et}` : st;
+ }
+
       function formatDayHeader(d){
         return d.toLocaleDateString('en-PH',{weekday:'long',month:'short',day:'numeric',year:'numeric'});
       }
@@ -695,8 +699,8 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
           switchToFormMode(false, 'Add Event');
           setDateFromDay(selectedDay);
           if (!info.allDay){
-            startTime.value = toLocalHM(info.start);
-            if (info.end) endTime.value = toLocalHM(info.end);
+            startTime.value = toPH_HM(info.start);
+            if (info.end) endTime.value = toPH_HM(info.end);
             allDayHid.value='0';
           } else {
             startTime.value=''; endTime.value=''; allDayHid.value='1';
@@ -704,7 +708,7 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
           modal.show(); calendar.unselect();
         },
 
-        eventClick: (info) => {
+eventClick: async (info) => {
   if (modalOpen) return;
   const e = info.event;
 
@@ -720,22 +724,59 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
     return;
   }
 
-  selectedDay = startOfDay(e.start || new Date());
-  switchToFormMode(true, 'Edit Event');
+  try {
+    // ✅ snapshot mula DB (admin/events_get.php)
+    const res  = await fetch('events_get.php?id=' + encodeURIComponent(e.id));
+    const data = await res.json();
+    if (!data?.ok) throw new Error(data?.msg || 'Fetch failed');
 
-  document.getElementById('event_id').value = e.id;
-  titleInp.value = e.title;
-  colorInp.value = e.backgroundColor || '#198754';
-  descInp.value  = e.extendedProps?.description || '';
+    switchToFormMode(true, 'Edit Event');
 
-  startHidden.value = e.startStr || '';
-  endHidden.value   = e.endStr   || '';
-  allDayHid.value   = e.allDay ? '1' : '0';
-  startTime.value = (!e.allDay && e.start) ? toLocalHM(e.start) : '';
-  endTime.value   = (!e.allDay && e.end)   ? toLocalHM(e.end)   : '';
+    // keys + basics
+    document.getElementById('event_id').value = data.id;
+    titleInp.value = data.title || '';
+    colorInp.value = data.color || '#198754';
+    descInp.value  = data.description || '';
 
-  modal.show();
+    // hidden datetime fields
+    startHidden.value = data.start || '';
+    endHidden.value   = data.end   || '';
+    allDayHid.value   = data.allDay ? '1' : '0';
+
+    // time inputs (Asia/Manila)
+    if (data.allDay) {
+      startTime.value = '';
+      endTime.value   = '';
+      selectedDay     = startOfDay(new Date((data.start || '').slice(0,10)));
+    } else {
+      startTime.value = toPH_HM(data.start);
+      endTime.value   = data.end ? toPH_HM(data.end) : '';
+      selectedDay     = startOfDay(new Date(data.start));
+    }
+
+    modal.show();
+
+  } catch (err) {
+    // fallback gamit ang event object ng calendar
+    selectedDay = startOfDay(e.start || new Date());
+    switchToFormMode(true, 'Edit Event');
+
+    document.getElementById('event_id').value = e.id;
+    titleInp.value = e.title;
+    colorInp.value = e.backgroundColor || '#198754';
+    descInp.value  = e.extendedProps?.description || '';
+
+    startHidden.value = e.startStr || '';
+    endHidden.value   = e.endStr   || '';
+    allDayHid.value   = e.allDay ? '1' : '0';
+
+    startTime.value = (!e.allDay && e.start) ? toPH_HM(e.start) : '';
+    endTime.value   = (!e.allDay && e.end)   ? toPH_HM(e.end)   : '';
+
+    modal.show();
+  }
 },
+
 
         editable:true,
         eventDrop:  async info => { await quickSaveTimes(info.event); },
@@ -806,18 +847,47 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
 
     // Kung owned, tsaka lang magdagdag ng listeners
     if (isOwned) {
-      item.querySelector('.edit-ev').addEventListener('click', () => {
-        switchToFormMode(true, 'Edit Event');
-        document.getElementById('event_id').value = ev.id;
-        titleInp.value = ev.title;
-        colorInp.value = ev.backgroundColor || '#198754';
-        descInp.value  = ev.extendedProps?.description || '';
-        startHidden.value = ev.startStr || '';
-        endHidden.value   = ev.endStr   || '';
-        allDayHid.value   = ev.allDay ? '1':'0';
-        startTime.value = (!ev.allDay && ev.start) ? toLocalHM(ev.start) : '';
-        endTime.value   = (!ev.allDay && ev.end)   ? toLocalHM(ev.end)   : '';
-      });
+      item.querySelector('.edit-ev')?.addEventListener('click', async () => {
+  try {
+    const res  = await fetch('events_get.php?id=' + encodeURIComponent(ev.id));
+    const data = await res.json();
+    if (!data?.ok) throw new Error(data?.msg || 'Fetch failed');
+
+    switchToFormMode(true, 'Edit Event');
+
+    document.getElementById('event_id').value = data.id;
+    titleInp.value = data.title || '';
+    colorInp.value = data.color || '#198754';
+    descInp.value  = data.description || '';
+
+    startHidden.value = data.start || '';
+    endHidden.value   = data.end   || '';
+    allDayHid.value   = data.allDay ? '1' : '0';
+
+    if (data.allDay) {
+      startTime.value = '';
+      endTime.value   = '';
+      selectedDay     = startOfDay(new Date((data.start || '').slice(0,10)));
+    } else {
+      startTime.value = toPH_HM(data.start);
+      endTime.value   = data.end ? toPH_HM(data.end) : '';
+      selectedDay     = startOfDay(new Date(data.start));
+    }
+
+  } catch (err) {
+    // fallback kung may error
+    switchToFormMode(true, 'Edit Event');
+    document.getElementById('event_id').value = ev.id;
+    titleInp.value = ev.title;
+    colorInp.value = ev.backgroundColor || '#198754';
+    descInp.value  = ev.extendedProps?.description || '';
+    startHidden.value = ev.startStr || '';
+    endHidden.value   = ev.endStr   || '';
+    allDayHid.value   = ev.allDay ? '1' : '0';
+    startTime.value   = (!ev.allDay && ev.start) ? toPH_HM(ev.start) : '';
+    endTime.value     = (!ev.allDay && ev.end)   ? toPH_HM(ev.end)   : '';
+  }
+});
 
       item.querySelector('.del-ev').addEventListener('click', async ()=> {
   const { isConfirmed } = await Swal.fire({
@@ -858,6 +928,43 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
     dayEventsList.appendChild(item);
   }
 }
+// Delete from EDIT modal
+deleteBtn.addEventListener('click', async () => {
+  const id = document.getElementById('event_id').value;
+  if (!id) {
+    Swal.fire({ icon: 'warning', title: 'No event selected' });
+    return;
+  }
+
+  const { isConfirmed } = await Swal.fire({
+    icon: 'warning',
+    title: 'Delete this event?',
+    text: 'This cannot be undone.',
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#dc3545'
+  });
+  if (!isConfirmed) return;
+
+  try {
+    const fd = new FormData();
+    fd.append('event_id', id);
+
+    const res  = await fetch('events_delete.php', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!data?.ok) throw new Error(data?.msg || 'Delete failed');
+
+    await Swal.fire({ icon: 'success', title: 'Event deleted', timer: 900, showConfirmButton: false });
+
+    modal.hide();
+    calendar.refetchEvents();
+    if (selectedDay) renderDayList(selectedDay);
+
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: String(err.message || err) });
+  }
+});
 
       function switchToListMode(label){
         modalTitle.textContent='Events';
@@ -957,7 +1064,21 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
           calendar.refetchEvents();
         }
       }
+      function toPH_HM(dateOrIso){
+  if (!dateOrIso) return '';
+  if (typeof dateOrIso === 'string'){            // "YYYY-MM-DD HH:MM:SS"
+    const s = dateOrIso.replace(' ', 'T');
+    const m = s.match(/T(\d{2}:\d{2})/);
+    if (m) return m[1];                          // HH:MM (24h)
+  }
+  const fmt = new Intl.DateTimeFormat('en-GB',{
+    hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Manila'
+  });
+  return fmt.format(dateOrIso);
+}
+
     });
+
   </script>
 </body>
 </html>
