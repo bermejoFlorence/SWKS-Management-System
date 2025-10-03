@@ -796,37 +796,47 @@ editPostForm.addEventListener('submit', async function(e){
   }
 });
 
-// delete (with SweetAlert confirm)
-document.addEventListener('click', async function(e){
+/// delete (with SweetAlert confirm)
+document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.admin-delete-post');
   if (!btn) return;
   e.preventDefault();
 
-  const { isConfirmed } = await Swal.fire({
+  // Confirm muna
+  const res = await Swal.fire({
     icon: 'warning',
     title: 'Delete this post?',
     text: 'This action cannot be undone.',
     showCancelButton: true,
     confirmButtonText: 'Delete',
-    confirmButtonColor: '#d33'
+    confirmButtonColor: '#d33',
+    cancelButtonText: 'Cancel'
   });
-  if (!isConfirmed) return;
+  if (!res.isConfirmed) return;
 
+  // Send request
   const fd = new FormData();
-  fd.append('action','delete');
+  fd.append('action', 'delete');
   fd.append('post_id', btn.dataset.postId);
 
   try {
-    const r = await fetch('forum_post_admin_action.php', { method:'POST', body: fd });
+    const r = await fetch('forum_post_admin_action.php', { method: 'POST', body: fd });
     const data = await r.json();
-    if (data?.ok){
-      await Swal.fire({ icon:'success', title:'Deleted', timer:1100, showConfirmButton:false });
-      document.getElementById('post-' + btn.dataset.postId)?.remove();
+
+    if (data?.ok) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'Deleted',
+        timer: 900,
+        showConfirmButton: false
+      });
+      // 🔁 Para maiwasan ang “second delete” glitch at sariwa ang list:
+      location.reload();
     } else {
-      Swal.fire({ icon:'error', title:'Error', text: data?.msg || 'Delete failed.' });
+      await Swal.fire({ icon: 'error', title: 'Error', text: data?.msg || 'Delete failed' });
     }
   } catch (err) {
-    Swal.fire({ icon:'error', title:'Network error', text: String(err) || 'Please try again.' });
+    await Swal.fire({ icon: 'error', title: 'Network error', text: String(err) });
   }
 });
 </script>
