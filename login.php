@@ -133,6 +133,25 @@ body { min-height: 100vh; margin: 0; }
 }
 .toggle-pass:hover{ opacity: 1; }
 .toggle-pass svg{ width: 20px; height: 20px; }
+.form-row{
+  width:100%;
+  display:flex;
+  justify-content:flex-end;
+  margin: -6px 2px 16px;   /* a little tighter, adjust as you like */
+    margin-top: 20px;
+}
+.link-btn{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#159140;
+  font-weight:700;
+  cursor:pointer;
+  padding:0;
+  line-height:1.1;
+}
+.link-btn:hover{ text-decoration:underline; }
+.form-row-center{ justify-content:center; }
 
 </style>
 
@@ -167,6 +186,11 @@ body { min-height: 100vh; margin: 0; }
 
       <button type="submit" class="submit-btn">Sign In</button>
     </form>
+  <div class="form-row form-row-center">
+  <a href="forgot_password.php" class="link-btn">Forgot password?</a>
+</div>
+
+
   </div>
 </div>
 
@@ -199,13 +223,51 @@ document.addEventListener("DOMContentLoaded", function() {
     timer: 1800
   }).then(function() { redirectByRole(); });
   setTimeout(redirectByRole, 1900);
-
+  
   function redirectByRole(){
     var role = "<?= $_GET['role']; ?>";
     if      (role === "admin")   window.location.href = "admin/index.php";
     else if (role === "adviser") window.location.href = "adviser/index.php";
     else if (role === "member")  window.location.href = "member/index.php";
     else                         window.location.href = "index.php";
+  }
+
+   const forgotBtn = document.getElementById('forgotBtn');
+  if (forgotBtn) {
+    forgotBtn.addEventListener('click', async () => {
+      const { value: email } = await Swal.fire({
+        title: 'Reset password',
+        input: 'email',
+        inputLabel: 'Enter your account email',
+        inputPlaceholder: 'you@example.com',
+        confirmButtonText: 'Send reset link',
+        showCancelButton: true,
+        inputAttributes: { autocapitalize: 'off' }
+      });
+
+      if (!email) return;
+
+      try {
+        const fd = new FormData();
+        fd.append('email', email.trim());
+
+        const res  = await fetch('forgot_password_request.php', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        // Always show generic message to avoid email enumeration
+        if (data?.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Check your email',
+            text: 'If that email is registered, a reset link has been sent.',
+          });
+        } else {
+          Swal.fire({ icon:'error', title:'Error', text: data?.msg || 'Something went wrong.' });
+        }
+      } catch (e) {
+        Swal.fire({ icon:'error', title:'Network error', text:'Please try again.' });
+      }
+    });
   }
 });
 </script>
