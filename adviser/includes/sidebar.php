@@ -1,20 +1,21 @@
 <?php
 $currentPage = basename($_SERVER['PHP_SELF']);
 
-// 1) Base path ng kasalukuyang page ( /admin , /adviser , /member ; minsan /swks/admin )
-$roleBase = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+// Build a correct web URL to logo.png sitting BESIDE this sidebar.php
+$docRoot     = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/\\');
+$sideDirDisk = realpath(__DIR__);                                  // disk path of folder containing sidebar.php
+$logoUrl     = 'logo.png';                                         // fallback
+$logoExists  = false;
+$logoQ       = '';                                                 // for cache-busting
 
-// 2) Subukan ang ilang kandidato para masakop ang may/without /swks
-$candidates = [
-  $roleBase . '/includes/logo.png',           // /admin/includes/logo.png  (o /swks/admin/… depende sa host)
-  '/swks' . $roleBase . '/includes/logo.png', // /swks/admin/includes/logo.png (kapag nire-rewrite ang /swks → /)
-  '/assets/logo.png',                         // optional shared fallback
-];
-
-$logoUrl = null;
-foreach ($candidates as $u) {
-  $abs = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $u;
-  if (is_file($abs)) { $logoUrl = $u; break; }
+if ($sideDirDisk && $docRoot && strpos($sideDirDisk, $docRoot) === 0) {
+    $rel = str_replace(DIRECTORY_SEPARATOR, '/', substr($sideDirDisk, strlen($docRoot))); // e.g. /swks/admin/includes
+    $logoUrl = ($rel === '' ? '' : $rel) . '/logo.png';
+    if ($logoUrl === '' || $logoUrl[0] !== '/') $logoUrl = '/' . $logoUrl;
+    $logoExists = is_file($sideDirDisk . DIRECTORY_SEPARATOR . 'logo.png');
+    if ($logoExists) {
+        $logoQ = '?v=' . filemtime($sideDirDisk . DIRECTORY_SEPARATOR . 'logo.png'); // cache-bust
+    }
 }
 ?>
 
@@ -24,10 +25,10 @@ foreach ($candidates as $u) {
     <button class="close-sidebar" onclick="toggleSidebar()" tabindex="0" aria-label="Close sidebar">
         <i class="bi bi-x"></i>
     </button>
-    <div class="logo">
+   <div class="logo">
   <a href="index.php" class="swks-logo-link" aria-label="SWKS Home">
-    <?php if (!empty($logoExists)): ?>
-      <img src="<?= htmlspecialchars($logoUrl) ?>" alt="SWKS" class="swks-logo-img" loading="lazy">
+    <?php if ($logoExists): ?>
+      <img src="<?= htmlspecialchars($logoUrl . $logoQ) ?>" alt="SWKS" class="swks-logo" style="height:40px;width:auto;display:block;">
     <?php else: ?>
       <span class="swks-logo-text">SWKS</span>
     <?php endif; ?>

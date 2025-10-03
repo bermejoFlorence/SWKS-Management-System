@@ -828,12 +828,3 @@ body, html {
 .notification-dropdown .dropdown-menu::-webkit-scrollbar-thumb{
   background: #d7e6da; border-radius: 8px;
 }
-  .sidebar .logo { padding: 16px 18px; }
-  .swks-logo-img{
-    display:block;
-    width:160px;      /* adjust as you like */
-    max-width:100%;
-    height:auto;
-    margin:0 auto;
-    border-radius:12px; /* optional rounded corners */
-  }
