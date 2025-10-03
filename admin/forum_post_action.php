@@ -1,110 +1,173 @@
 <?php
+// admin/forum_post_action.php
 session_start();
 include_once '../database/db_connection.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $content = trim($_POST['post_content'] ?? '');
-    $title = trim($_POST['title'] ?? '');
-    $org_id = $_GET['organization'] ?? 'SWKS';
-    $user_id = $_SESSION['user_id'];
+// Always return JSON (your JS shows SweetAlerts based on this)
+header('Content-Type: application/json');
 
-    if ($org_id === 'SWKS' || $org_id === '') $org_id = 11;
+// 🔧 Change this if your SWKS org_id is different
+const SWKS_ORG_ID = 11;
 
-    // Handle attachments
-    $attachment_paths = [];
-    if (isset($_FILES['attachments']) && isset($_FILES['attachments']['name']) && $_FILES['attachments']['name'][0] !== "") {
-        $files = $_FILES['attachments'];
-
-        // Use shared uploads directory outside any user-type folder
-        $targetDir = realpath(__DIR__ . '/../uploads');
-        if (!$targetDir) {
-            // If uploads/ does not exist, create it
-            mkdir(__DIR__ . '/../uploads', 0777, true);
-            $targetDir = realpath(__DIR__ . '/../uploads');
-        }
-        $targetDir .= '/';
-
-        for ($i = 0; $i < count($files['name']); $i++) {
-            if ($files['error'][$i] === UPLOAD_ERR_OK) {
-                $fileTmp = $files['tmp_name'][$i];
-                $fileName = basename($files['name'][$i]);
-                $fileExt = pathinfo($fileName, PATHINFO_EXTENSION);
-                $newFileName = uniqid("attach_", true) . "." . $fileExt;
-                $targetFilePath = $targetDir . $newFileName;
-
-                if (move_uploaded_file($fileTmp, $targetFilePath)) {
-                    // Save relative path only (for use in <img src> or <a href>)
-                    $relativePath = 'uploads/' . $newFileName;
-                    $attachment_paths[] = $relativePath;
-                }
-            }
-        }
-    }
-    $attachment_json = !empty($attachment_paths) ? json_encode($attachment_paths) : '';
-
-    // Insert forum post
-    $stmt = $conn->prepare(
-        "INSERT INTO forum_post (org_id, user_id, title, content, attachment, created_at) VALUES (?, ?, ?, ?, ?, NOW())"
-    );
-    $stmt->bind_param("iisss", $org_id, $user_id, $title, $content, $attachment_json);
-
-    if ($stmt->execute()) {
-        $post_id = $stmt->insert_id;
-
-        // --- START: Insert Notifications ---
-        // Step 1: Get role of the poster (admin/adviser/member)
-        $posterRole = '';
-        $roleStmt = $conn->prepare("SELECT user_role FROM user WHERE user_id = ?");
-        $roleStmt->bind_param("i", $user_id);
-        $roleStmt->execute();
-        $roleStmt->bind_result($posterRole);
-        $roleStmt->fetch();
-        $roleStmt->close();
-
-        // Step 2: Select users to notify
-        if ($posterRole === 'admin') {
-            // Notify ALL users in the system (including admin)
-            $getUsers = $conn->prepare(
-                "SELECT user_id, org_id FROM user"
-            );
-            $getUsers->execute();
-            $result = $getUsers->get_result();
-        } else {
-            // Notify only advisers and members in the same org
-            $getUsers = $conn->prepare(
-                "SELECT user_id, org_id FROM user WHERE org_id = ? AND user_role IN ('adviser', 'member')"
-            );
-            $getUsers->bind_param("i", $org_id);
-            $getUsers->execute();
-            $result = $getUsers->get_result();
-        }
-
-        // Step 3: Insert notification for each user
-        $notifStmt = $conn->prepare(
-            "INSERT INTO notification (user_id, post_id, type, message, is_seen, created_at, org_id)
-             VALUES (?, ?, ?, ?, 0, NOW(), ?)"
-        );
-        $notifType = 'forum_post';
-        $notifMsg = !empty($title)
-            ? "New forum post: " . $title
-            : "A new post was added in your organization forum.";
-
-        while ($row = $result->fetch_assoc()) {
-            $targetUserId = $row['user_id'];
-            $targetOrgId = $row['org_id'];
-            $notifStmt->bind_param("iissi", $targetUserId, $post_id, $notifType, $notifMsg, $targetOrgId);
-            $notifStmt->execute();
-        }
-
-        $notifStmt->close();
-        $getUsers->close();
-        // --- END: Insert Notifications ---
-
-        echo 'success';
-    } else {
-        http_response_code(400);
-        echo 'error';
-    }
-    exit();
+// 1) Basic guards
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  http_response_code(405);
+  echo json_encode(['success' => false, 'message' => 'Method not allowed.']);
+  exit;
 }
-?>
+
+$user_id = (int)($_SESSION['user_id'] ?? 0);
+if (!$user_id) {
+  http_response_code(401);
+  echo json_encode(['success' => false, 'message' => 'Not authenticated.']);
+  exit;
+}
+
+$title   = trim($_POST['title'] ?? '');
+$content = trim($_POST['post_content'] ?? '');
+if ($content === '') {
+  http_response_code(400);
+  echo json_encode(['success' => false, 'message' => 'Post content is required.']);
+  exit;
+}
+
+// org_id passed via ?organization=... on the form action
+$org_in  = $_GET['organization'] ?? 'SWKS';
+$org_id  = ($org_in === 'SWKS' || $org_in === '') ? SWKS_ORG_ID : (int)$org_in;
+
+// 2) Get poster role
+$posterRole = '';
+if ($stmt = $conn->prepare("SELECT user_role FROM user WHERE user_id=?")) {
+  $stmt->bind_param("i", $user_id);
+  $stmt->execute();
+  $stmt->bind_result($posterRole);
+  $stmt->fetch();
+  $stmt->close();
+}
+if ($posterRole === '') {
+  http_response_code(400);
+  echo json_encode(['success' => false, 'message' => 'User role not found.']);
+  exit;
+}
+
+// 3) NEW: Block admin posting to a specific org that has no members/advisers yet
+if ($posterRole === 'admin' && $org_id !== SWKS_ORG_ID) {
+  $audCount = 0;
+  if ($chk = $conn->prepare("SELECT COUNT(*) FROM user WHERE org_id=? AND user_id<>?")) {
+    $chk->bind_param("ii", $org_id, $user_id);
+    $chk->execute();
+    $chk->bind_result($audCount);
+    $chk->fetch();
+    $chk->close();
+  }
+  if ((int)$audCount === 0) {
+    echo json_encode([
+      'success' => false,
+      'reason'  => 'no_recipients',
+      'message' => 'This organization has no members/advisers yet. Please add users before posting.'
+    ]);
+    exit;
+  }
+}
+
+// 4) Handle attachments (optional)
+$attachment_paths = [];
+if (!empty($_FILES['attachments']['name'][0])) {
+  $files = $_FILES['attachments'];
+  $uploadDir = realpath(__DIR__ . '/../uploads');
+  if ($uploadDir === false) {
+    // create uploads if missing
+    @mkdir(__DIR__ . '/../uploads', 0777, true);
+    $uploadDir = realpath(__DIR__ . '/../uploads');
+  }
+  if ($uploadDir === false) {
+    echo json_encode(['success'=>false, 'message'=>'Cannot create uploads directory.']);
+    exit;
+  }
+  $uploadDir = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR;
+
+  for ($i = 0; $i < count($files['name']); $i++) {
+    if ($files['error'][$i] === UPLOAD_ERR_OK) {
+      $tmp  = $files['tmp_name'][$i];
+      $ext  = pathinfo($files['name'][$i], PATHINFO_EXTENSION);
+      $name = uniqid('attach_', true) . ($ext ? '.' . $ext : '');
+      if (move_uploaded_file($tmp, $uploadDir . $name)) {
+        // store relative path for <img src="/swks/uploads/..">
+        $attachment_paths[] = 'uploads/' . $name;
+      }
+    }
+  }
+}
+$attachment_json = $attachment_paths ? json_encode($attachment_paths) : '';
+
+// 5) Insert forum post
+if (!($stmt = $conn->prepare(
+  "INSERT INTO forum_post (org_id, user_id, title, content, attachment, created_at)
+   VALUES (?, ?, ?, ?, ?, NOW())"
+))) {
+  echo json_encode(['success'=>false, 'message'=>'Prepare failed while saving post.']);
+  exit;
+}
+$stmt->bind_param("iisss", $org_id, $user_id, $title, $content, $attachment_json);
+if (!$stmt->execute()) {
+  $stmt->close();
+  echo json_encode(['success'=>false, 'message'=>'Could not save post.']);
+  exit;
+}
+$post_id = $stmt->insert_id;
+$stmt->close();
+
+// 6) Compose notification message
+$orgName = 'SWKS';
+if ($gx = $conn->prepare("SELECT org_name FROM organization WHERE org_id=? LIMIT 1")) {
+  $gx->bind_param("i", $org_id);
+  $gx->execute();
+  $gx->bind_result($orgNameRes);
+  if ($gx->fetch() && $orgNameRes) $orgName = $orgNameRes;
+  $gx->close();
+}
+
+$notifType = 'forum_post';
+$notifMsg  = ($org_id === SWKS_ORG_ID)
+  ? ($title !== '' ? "[SWKS] New forum post: $title" : "[SWKS] A new post was added.")
+  : ($title !== '' ? "New forum post in $orgName: $title" : "A new post was added in $orgName.");
+
+// 7) Find recipients
+if ($posterRole === 'admin') {
+  if ($org_id === SWKS_ORG_ID) {
+    // Global: notify everyone except the poster
+    $getUsers = $conn->prepare("SELECT user_id FROM user WHERE user_id <> ?");
+    $getUsers->bind_param("i", $user_id);
+  } else {
+    // Specific org: notify users in that org except the poster
+    $getUsers = $conn->prepare("SELECT user_id FROM user WHERE org_id=? AND user_id <> ?");
+    $getUsers->bind_param("ii", $org_id, $user_id);
+  }
+} else {
+  // Non-admin poster → notify adviser + members of same org (exclude poster)
+  $getUsers = $conn->prepare("
+    SELECT user_id FROM user
+    WHERE org_id=? AND user_id<>? AND user_role IN ('adviser','member')
+  ");
+  $getUsers->bind_param("ii", $org_id, $user_id);
+}
+
+$getUsers->execute();
+$res = $getUsers->get_result();
+
+// 8) Insert notifications (one per recipient)
+//    Always store the org_id of the POST so filtering is correct
+$notifStmt = $conn->prepare("
+  INSERT INTO notification (user_id, post_id, type, message, is_seen, created_at, org_id)
+  VALUES (?, ?, ?, ?, 0, NOW(), ?)
+");
+while ($row = $res->fetch_assoc()) {
+  $targetUid = (int)$row['user_id'];
+  $notifStmt->bind_param("iissi", $targetUid, $post_id, $notifType, $notifMsg, $org_id);
+  $notifStmt->execute();
+}
+$notifStmt->close();
+$getUsers->close();
+
+// 9) Done
+echo json_encode(['success' => true, 'message' => 'Posted', 'post_id' => $post_id, 'org_id' => $org_id]);

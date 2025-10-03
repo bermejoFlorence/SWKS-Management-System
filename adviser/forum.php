@@ -1,66 +1,65 @@
 <?php
-include 'includes/auth_admin.php';
+include 'includes/auth_adviser.php';
 include '../database/db_connection.php'; // adjust path as needed
 include 'includes/functions.php';
 
-// ---- SUNOD NA ANG DATABASE QUERIES at LOGIC ----
-// 'SWKS' = All orgs
-$orgFilter = $_GET['organization'] ?? 'SWKS';
+// Get adviser user_id from session
+$user_id = $_SESSION['user_id'] ?? 0;
 
-// Get organizations for select (with selected state)
-$selectedOrg = $orgFilter;
-$orgOptions = '';
-$sql = "SELECT org_id, org_name FROM organization ORDER BY org_name ASC";
-$result_org = $conn->query($sql);
-if ($result_org && $result_org->num_rows > 0) {
-    while ($row = $result_org->fetch_assoc()) {
-        $sel = ($selectedOrg === (string)$row['org_id']) ? 'selected' : '';
-        $orgOptions .= '<option value="' . $row['org_id'] . '" ' . $sel . '>' . htmlspecialchars($row['org_name']) . '</option>';
-    }
+$org_id = 0;
+$org_name = "";
+
+// Prefer session if you already store it
+if (!empty($_SESSION['org_id'])) {
+    $org_id = (int)$_SESSION['org_id'];
+    $stmt = $conn->prepare("SELECT org_name FROM organization WHERE org_id = ? LIMIT 1");
+    $stmt->bind_param("i", $org_id);
+    $stmt->execute();
+    $stmt->bind_result($org_name);
+    $stmt->fetch();
+    $stmt->close();
 } else {
-    $orgOptions = '<option disabled>No organizations found</option>';
-}
+    // Fetch adviser's organization
+    $stmt = $conn->prepare("SELECT o.org_id, o.org_name 
+        FROM adviser_details a
+        JOIN user u ON a.user_id = u.user_id
+        JOIN organization o ON u.org_id = o.org_id
+        WHERE a.user_id = ?
+        LIMIT 1");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $stmt->bind_result($org_id, $org_name);
+    $ok = $stmt->fetch();
+    $stmt->close();
 
-// ---- FETCH FORUM POSTS (dynamic WHERE) ----
-$baseSql = "SELECT 
-    p.*, 
-    u.user_role, 
-    u.user_email, 
-    COALESCE(m.full_name, a.adviser_fname, c.coor_name, u.user_email) AS poster_name,
-    m.profile_picture AS member_pic,
-    a.profile_pic AS adviser_pic,
-    c.profile_pic AS coor_pic,
-    org.org_name AS poster_org
-FROM forum_post p
-JOIN user u ON u.user_id = p.user_id
-LEFT JOIN member_details m ON m.user_id = u.user_id
-LEFT JOIN adviser_details a ON a.user_id = u.user_id
-LEFT JOIN aca_coordinator_details c ON c.user_id = u.user_id
-LEFT JOIN organization org ON org.org_id = u.org_id";
-
-$params = [];
-$types  = "";
-
-// Add org filter only if not SWKS (All) and not empty
-if ($orgFilter !== 'SWKS' && $orgFilter !== '') {
-    $baseSql .= " WHERE p.org_id = ? ";
-    $types .= "i";
-    $params[] = (int)$orgFilter;
-}
-
-$baseSql .= " ORDER BY p.created_at DESC";
-
-$stmt = $conn->prepare($baseSql);
-if (!empty($params)) {
-    // bind_param requires references
-    $bindParams = array_merge([$types], $params);
-    $tmp = [];
-    foreach ($bindParams as $key => $value) {
-        $tmp[$key] = &$bindParams[$key];
+    if (!$ok || !$org_id) {
+        http_response_code(403);
+        exit('No organization assigned to this adviser.');
     }
-    call_user_func_array([$stmt, 'bind_param'], $tmp);
 }
 
+
+// Fetch forum posts (for adviser's org + admin posts)
+$sql = "SELECT 
+            p.*, 
+            u.user_role, 
+            u.user_email, 
+            COALESCE(m.full_name, a.adviser_fname, c.coor_name, u.user_email) AS poster_name,
+            m.profile_picture AS member_pic,
+            a.profile_pic AS adviser_pic,
+            c.profile_pic AS coor_pic,
+            org.org_name AS poster_org
+        FROM forum_post p
+        JOIN user u ON u.user_id = p.user_id
+        LEFT JOIN member_details m ON m.user_id = u.user_id
+        LEFT JOIN adviser_details a ON a.user_id = u.user_id
+        LEFT JOIN aca_coordinator_details c ON c.user_id = u.user_id
+        LEFT JOIN organization org ON org.org_id = u.org_id
+        WHERE p.org_id = ? OR p.org_id = 11
+        ORDER BY p.created_at DESC";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $org_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -77,7 +76,7 @@ while ($row = $result->fetch_assoc()) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Aca Coordinator Forum</title>
+    <title>Adviser Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -102,36 +101,12 @@ while ($row = $result->fetch_assoc()) {
             <!-- Top Bar: Title + Filters -->
             <div class="row align-items-center mb-3">
                 <div class="col-md-5 col-12">
-                    <?php
-                    $forumTitle = "SWKS FORUM";
-                    if (isset($_GET['organization']) && $_GET['organization'] != "") {
-                        if ($_GET['organization'] == "SWKS") {
-                            $forumTitle = "SWKS FORUM";
-                        } else {
-                            $org_id_sel = $_GET['organization'];
-                            $org_name = "";
-                            $org_query = $conn->prepare("SELECT org_name FROM organization WHERE org_id=? LIMIT 1");
-                            $org_query->bind_param("s", $org_id_sel);
-                            $org_query->execute();
-                            $org_query->bind_result($org_name);
-                            if ($org_query->fetch()) {
-                                $forumTitle = strtoupper($org_name) . " FORUM";
-                            }
-                            $org_query->close();
-                        }
-                    }
-                    ?>
                     <div class="align-items-center">
-                        <h4 class="fw-bold mb-0"><?= htmlspecialchars($forumTitle) ?></h4>
+                        <h4 class="fw-bold mb-0"><?= htmlspecialchars(strtoupper($org_name) . " FORUM") ?></h4>
                     </div>
                 </div>
           <div class="col-md-7 col-12 mt-2 mt-md-0 d-flex justify-content-md-end">
             <form method="get" class="d-flex flex-nowrap align-items-center" style="overflow-x:auto;">
-                <select class="form-select me-2" name="organization" onchange="this.form.submit()" style="max-width: 210px;">
-                    <option value="">Select Organization</option>
-                    <option value="SWKS" <?= ($selectedOrg === 'SWKS' || $selectedOrg === '') ? 'selected' : '' ?>>SWKS</option>
-                    <?= $orgOptions ?>
-                </select>
                 <!-- Month -->
                 <select class="form-select me-2" name="month" style="max-width: 100px;">
                     <option>Month</option>
@@ -166,7 +141,7 @@ while ($row = $result->fetch_assoc()) {
                     <form id="forumPostForm" action="forum_post_action.php<?= isset($_GET['organization']) ? '?organization=' . urlencode($_GET['organization']) : ''; ?>" method="post" enctype="multipart/form-data" class="d-flex flex-column flex-md-row align-items-center gap-2" autocomplete="off">
                         <div class="w-100 mb-2 mb-md-0">
                             <input type="text" class="form-control mb-2" name="title" placeholder="Title (optional)">
-                            <textarea class="form-control" name="post_content" rows="2" placeholder="Write something" required></textarea>
+                            <textarea class="form-control" name="post_content" rows="2" placeholder="Write something"></textarea>
                             <div id="attachment-preview" class="mt-1 ms-1"></div>
                         </div>
                         <label class="btn btn-outline-secondary mb-2 mb-md-0 d-flex align-items-center justify-content-center" style="max-width: 44px; height: 44px;" title="Attach file">
@@ -200,61 +175,45 @@ while ($row = $result->fetch_assoc()) {
                     data-org_id="<?= htmlspecialchars($row['org_id']) ?>">
                     <div class="card-body">
                         <!-- User Info -->
-                 <!-- User Info + kebab -->
-<div class="d-flex align-items-center justify-content-between mb-2">
-  <div class="d-flex align-items-center">
-    <?php
-    $profile_pic = $row['member_pic'] ?: $row['adviser_pic'] ?: $row['coor_pic'] ?: 'uploads/default.jpg';
-    if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
-      if (!str_starts_with($profile_pic, 'uploads/')) { $profile_pic = "uploads/" . ltrim($profile_pic, '/'); }
-      $profile_pic = "/swks/" . ltrim($profile_pic, '/');
+                  <div class="d-flex align-items-center mb-2">
+  <?php
+$profile_pic = $row['member_pic'] ?: $row['adviser_pic'] ?: $row['coor_pic'] ?: 'uploads/default.jpg';
+
+if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
+    // Kung filename lang (walang "uploads/")
+    if (!str_starts_with($profile_pic, 'uploads/')) {
+        $profile_pic = "uploads/" . ltrim($profile_pic, '/');
     }
-    ?>
-    <img src="<?= htmlspecialchars($profile_pic) ?>"
-         alt="Avatar" class="rounded-circle border border-2"
-         width="52" height="52" style="object-fit:cover;">
+    // Final path with /swks/
+    $profile_pic = "/swks/" . ltrim($profile_pic, '/');
+}
+?>
+
+<img src="<?= htmlspecialchars($profile_pic) ?>"
+    alt="Avatar" class="rounded-circle border border-2" width="52" height="52" style="object-fit:cover;">
 
     <div class="ms-3">
-      <?php $posterLabel = formatPosterLabel($row['user_role'], $row['poster_org'], $row['poster_name']); ?>
-      <span class="fw-semibold" style="font-size:1.07rem;"><?= htmlspecialchars($posterLabel) ?></span><br>
-      <?php
-        $created_at = $row['created_at'];
-        $now = new DateTime();
-        $created = new DateTime($created_at);
-        $interval = $now->diff($created);
-        $displayTime = ($interval->days > 7)
-          ? date("F j, Y h:iA", strtotime($created_at))
-          : timeAgo($created_at);
-      ?>
-      <small class="text-muted"><?= htmlspecialchars($displayTime) ?></small>
+        <?php $posterLabel = formatPosterLabel($row['user_role'], $row['poster_org'], $row['poster_name']); ?>
+            <span class="fw-semibold" style="font-size:1.07rem;">
+                <?= htmlspecialchars($posterLabel) ?>
+            </span><br>
+
+        <small class="text-muted">
+            <?php
+            $created_at = $row['created_at'];
+            $now = new DateTime();
+            $created = new DateTime($created_at);
+            $interval = $now->diff($created);
+            if ($interval->days > 7) {
+                $displayTime = date("F j, Y h:iA", strtotime($created_at));
+            } else {
+                $displayTime = timeAgo($created_at);
+            }
+            ?>
+            <small class="text-muted"><?= htmlspecialchars($displayTime) ?></small>
+        </small>
     </div>
-  </div>
-
-  <!-- three-dots (admin only) -->
-  <div class="dropdown">
-    <button class="btn btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false" title="Options">
-      <i class="bi bi-three-dots-vertical fs-5"></i>
-    </button>
-    <ul class="dropdown-menu dropdown-menu-end">
-      <li>
-        <a href="#" class="dropdown-item admin-edit-post"
-           data-post-id="<?= (int)$row['post_id'] ?>"
-           data-title="<?= htmlspecialchars($row['title'] ?? '', ENT_QUOTES) ?>"
-           data-content="<?= htmlspecialchars($row['content'], ENT_QUOTES) ?>">
-          <i class="bi bi-pencil-square me-2"></i>Edit post
-        </a>
-      </li>
-      <li><hr class="dropdown-divider"></li>
-      <li>
-        <a href="#" class="dropdown-item text-danger admin-delete-post"
-           data-post-id="<?= (int)$row['post_id'] ?>">
-          <i class="bi bi-trash3 me-2"></i>Delete post
-        </a>
-      </li>
-    </ul>
-  </div>
 </div>
-
                         <!-- Attachments -->
                         <?php
                         $attachments = json_decode($row['attachment'] ?? '[]', true);
@@ -262,7 +221,7 @@ while ($row = $result->fetch_assoc()) {
                             echo '<div class="row g-2 justify-content-center">';
                             foreach ($attachments as $file) {
                                 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'jfif'])) {
+                                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'jfif', 'tiff', 'svg'])) {
                                     echo '<div class="col-6 col-md-3 d-flex justify-content-center">
                                             <a href="/swks/'.htmlspecialchars($file).'" class="post-image-link" data-img="/swks/'.htmlspecialchars($file).'">
                                                 <img src="/swks/'.htmlspecialchars($file).'" class="img-fluid rounded shadow-sm post-image-thumb" style="height:130px; object-fit:cover;">
@@ -322,82 +281,35 @@ while ($row = $result->fetch_assoc()) {
         </div>
       </div>
     </div>
-    <!-- Edit Post Modal -->
-<div class="modal fade" id="editPostModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-4">
-      <form id="editPostForm">
-        <div class="modal-header border-0">
-          <h5 class="modal-title fw-bold text-success">
-            <i class="bi bi-pencil-square me-2"></i>Edit Post
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" name="post_id" id="editPostId">
-          <div class="mb-3">
-            <label class="form-label">Title (optional)</label>
-            <input type="text" class="form-control" name="title" id="editPostTitle">
-          </div>
-          <div>
-            <label class="form-label">Content</label>
-            <textarea class="form-control" rows="5" name="content" id="editPostContent" required></textarea>
-          </div>
-        </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success">Save changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script>
-$('#forumPostForm').on('submit', function(e) {
-  e.preventDefault();
-  var form = this;
-  var $btn = $(form).find('button[type="submit"]');
-  $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Posting...');
-  var formData = new FormData(form);
+    <script>
+            // AJAX post submit (Forum)
+    $('#forumPostForm').on('submit', function(e) {
+        e.preventDefault();
+        var form = this;
+        var $btn = $(form).find('button[type="submit"]');
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Posting...');
+        var formData = new FormData(form);
 
-  $.ajax({
-    url: $(form).attr('action'),
-    type: "POST",
-    data: formData,
-    processData: false,
-    contentType: false,
-    success: function(resp) {
-      $btn.prop('disabled', false).html('Post');
-      try { if (typeof resp === 'string') resp = JSON.parse(resp); } catch(e){}
-
-      if (resp && resp.success) {
-        Swal.fire({icon:'success', title:'Posted!', timer:1200, showConfirmButton:false})
-          .then(() => {
-            form.reset();
-            $('#attachment-preview').empty();
-            // reload post list area only
-            $('#forumPostsContainer').load(location.href + ' #forumPostsContainer > *');
-          });
-      } else if (resp && resp.reason === 'no_recipients') {
-        Swal.fire({
-          icon: 'info',
-          title: 'No audience',
-          text: resp.message || 'This organization has no members/advisers yet.'
+        $.ajax({
+            url: $(form).attr('action'),
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $btn.prop('disabled', false).html('Post');
+                form.reset();
+                $('#attachment-preview').html('');
+                $('#forumPostsContainer').load(location.href + ' #forumPostsContainer > *');
+            },
+            error: function() {
+                $btn.prop('disabled', false).html('Post');
+                alert('Failed to post! Try again.');
+            }
         });
-      } else {
-        Swal.fire({icon:'error', title:'Error', text:(resp && resp.message) || 'Failed to post!'});
-      }
-    },
-    error: function(xhr) {
-      $btn.prop('disabled', false).html('Post');
-      const msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Failed to post! Try again.';
-      Swal.fire({icon:'error', title:'Error', text: msg});
-    }
-  });
-});
-</script>
+    });
+    </script>
     <script>
             // Sidebar toggle for mobile
         function toggleSidebar() {
@@ -484,14 +396,14 @@ $(document).on('click', '.comment-toggle', function() {
             data: formData,
             success: function(response) {
             $btn.prop('disabled', false).text('Comment');
-                $form[0].reset();
-                // 1. Refresh comments for that post only
-                $('#commentsList-' + post_id).load('includes/comments_list.php?post_id=' + post_id);
+            $form[0].reset();
+            // 1. Refresh comments for that post only
+            $('#commentsList-' + post_id).load('includes/comments_list.php?post_id=' + post_id);
 
-                // 2. Refresh the comment count in the UI (real-time update)
-                $.get('includes/get_comment_count.php', { post_id: post_id }, function(data) {
-                    $('#comment-count-' + post_id).text(data.count);
-                }, 'json');
+            // 2. Refresh the comment count in the UI (real-time update)
+            $.get('includes/get_comment_count.php', { post_id: post_id }, function(data) {
+                $('#comment-count-' + post_id).text(data.count);
+            }, 'json');
         },
             error: function() {
                 $btn.prop('disabled', false).text('Comment');
@@ -568,7 +480,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('noResultsMsg').style.display = (visibleCount === 0) ? "" : "none";
     }
 });
-// Poll comment counts for all posts every 3 seconds
+
 setInterval(function() {
     <?php foreach ($postIds as $pid): ?>
         $.get('includes/get_comment_count.php', { post_id: <?= $pid ?> }, function(data) {
@@ -576,7 +488,6 @@ setInterval(function() {
         }, 'json');
     <?php endforeach; ?>
 }, 3000);
-
     </script>
 
     <script>
@@ -638,7 +549,7 @@ function renderForumPost(post) {
     let posterOrg = post.poster_org ? `, ${escapeHtml(post.poster_org)}` : '';
     let posterLabel = `${escapeHtml(post.poster_name)} (${posterRole}${posterOrg})`;
 
-    return `
+   return `
 <div class="card forum-post-card mb-4 shadow-sm w-100"
     style="border-radius:18px;"
     id="post-${post.post_id}"
@@ -663,10 +574,6 @@ function renderForumPost(post) {
             <span class="me-2 comment-toggle" style="cursor:pointer;" data-post-id="${post.post_id}">
                 <i class="bi bi-chat-left-text fs-5"></i>
                 <span class="ms-1">${post.comment_count ?? 0}</span>
-            </span>
-            <span class="me-2">
-                <i class="bi bi-clock"></i>
-                <span class="ms-1">${timeAgo(post.created_at)}</span>
             </span>
         </div>
     </div>
@@ -750,87 +657,6 @@ function stopCommentPolling(postId) {
 }
 
 </script>
-<script>
-// open edit modal (unchanged, just cleaner)
-document.addEventListener('click', function(e){
-  const btn = e.target.closest('.admin-edit-post');
-  if (!btn) return;
-  e.preventDefault();
-
-  editPostId.value      = btn.dataset.postId;
-  editPostTitle.value   = btn.dataset.title || '';
-  editPostContent.value = btn.dataset.content || '';
-
-  bootstrap.Modal.getOrCreateInstance('#editPostModal').show();
-});
-
-const editPostForm   = document.getElementById('editPostForm');
-const editPostId     = document.getElementById('editPostId');
-const editPostTitle  = document.getElementById('editPostTitle');
-const editPostContent= document.getElementById('editPostContent');
-
-// submit edit (with SweetAlert)
-editPostForm.addEventListener('submit', async function(e){
-  e.preventDefault();
-  const fd = new FormData(this);
-  fd.append('action','update');
-
-  const btn = this.querySelector('button[type="submit"]');
-  btn.disabled = true; btn.textContent = 'Saving…';
-
-  try {
-    const r = await fetch('forum_post_admin_action.php', { method:'POST', body: fd });
-    const data = await r.json();
-    btn.disabled = false; btn.textContent = 'Save changes';
-
-    if (data?.ok){
-      bootstrap.Modal.getInstance(document.getElementById('editPostModal')).hide();
-      await Swal.fire({ icon:'success', title:'Post updated', timer:1200, showConfirmButton:false });
-      location.reload();
-    } else {
-      Swal.fire({ icon:'error', title:'Error', text: data?.msg || 'Update failed.' });
-    }
-  } catch (err) {
-    btn.disabled = false; btn.textContent = 'Save changes';
-    Swal.fire({ icon:'error', title:'Network error', text: String(err) || 'Please try again.' });
-  }
-});
-
-// delete (with SweetAlert confirm)
-document.addEventListener('click', async function(e){
-  const btn = e.target.closest('.admin-delete-post');
-  if (!btn) return;
-  e.preventDefault();
-
-  const { isConfirmed } = await Swal.fire({
-    icon: 'warning',
-    title: 'Delete this post?',
-    text: 'This action cannot be undone.',
-    showCancelButton: true,
-    confirmButtonText: 'Delete',
-    confirmButtonColor: '#d33'
-  });
-  if (!isConfirmed) return;
-
-  const fd = new FormData();
-  fd.append('action','delete');
-  fd.append('post_id', btn.dataset.postId);
-
-  try {
-    const r = await fetch('forum_post_admin_action.php', { method:'POST', body: fd });
-    const data = await r.json();
-    if (data?.ok){
-      await Swal.fire({ icon:'success', title:'Deleted', timer:1100, showConfirmButton:false });
-      document.getElementById('post-' + btn.dataset.postId)?.remove();
-    } else {
-      Swal.fire({ icon:'error', title:'Error', text: data?.msg || 'Delete failed.' });
-    }
-  } catch (err) {
-    Swal.fire({ icon:'error', title:'Network error', text: String(err) || 'Please try again.' });
-  }
-});
-</script>
-
 
 </body>
 </html>

@@ -166,7 +166,7 @@ while ($row = $result->fetch_assoc()) {
                     <form id="forumPostForm" action="forum_post_action.php<?= isset($_GET['organization']) ? '?organization=' . urlencode($_GET['organization']) : ''; ?>" method="post" enctype="multipart/form-data" class="d-flex flex-column flex-md-row align-items-center gap-2" autocomplete="off">
                         <div class="w-100 mb-2 mb-md-0">
                             <input type="text" class="form-control mb-2" name="title" placeholder="Title (optional)">
-                            <textarea class="form-control" name="post_content" rows="2" placeholder="Write something"></textarea>
+                            <textarea class="form-control" name="post_content" rows="2" placeholder="Write something" required></textarea>
                             <div id="attachment-preview" class="mt-1 ms-1"></div>
                         </div>
                         <label class="btn btn-outline-secondary mb-2 mb-md-0 d-flex align-items-center justify-content-center" style="max-width: 44px; height: 44px;" title="Attach file">
@@ -200,44 +200,61 @@ while ($row = $result->fetch_assoc()) {
                     data-org_id="<?= htmlspecialchars($row['org_id']) ?>">
                     <div class="card-body">
                         <!-- User Info -->
-                  <div class="d-flex align-items-center mb-2">
+                 <!-- User Info + kebab -->
+<div class="d-flex align-items-center justify-content-between mb-2">
+  <div class="d-flex align-items-center">
     <?php
-$profile_pic = $row['member_pic'] ?: $row['adviser_pic'] ?: $row['coor_pic'] ?: 'uploads/default.jpg';
-
-if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
-    // Kung filename lang (walang "uploads/")
-    if (!str_starts_with($profile_pic, 'uploads/')) {
-        $profile_pic = "uploads/" . ltrim($profile_pic, '/');
+    $profile_pic = $row['member_pic'] ?: $row['adviser_pic'] ?: $row['coor_pic'] ?: 'uploads/default.jpg';
+    if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
+      if (!str_starts_with($profile_pic, 'uploads/')) { $profile_pic = "uploads/" . ltrim($profile_pic, '/'); }
+      $profile_pic = "/swks/" . ltrim($profile_pic, '/');
     }
-    // Final path with /swks/
-    $profile_pic = "/swks/" . ltrim($profile_pic, '/');
-}
-?>
-<img src="<?= htmlspecialchars($profile_pic) ?>"
-     alt="Avatar" class="rounded-circle border border-2" width="52" height="52" style="object-fit:cover;">
+    ?>
+    <img src="<?= htmlspecialchars($profile_pic) ?>"
+         alt="Avatar" class="rounded-circle border border-2"
+         width="52" height="52" style="object-fit:cover;">
 
     <div class="ms-3">
-        <?php $posterLabel = formatPosterLabel($row['user_role'], $row['poster_org'], $row['poster_name']); ?>
-            <span class="fw-semibold" style="font-size:1.07rem;">
-                <?= htmlspecialchars($posterLabel) ?>
-            </span><br>
-
-        <small class="text-muted">
-            <?php
-            $created_at = $row['created_at'];
-            $now = new DateTime();
-            $created = new DateTime($created_at);
-            $interval = $now->diff($created);
-            if ($interval->days > 7) {
-                $displayTime = date("F j, Y h:iA", strtotime($created_at));
-            } else {
-                $displayTime = timeAgo($created_at);
-            }
-            ?>
-            <small class="text-muted"><?= htmlspecialchars($displayTime) ?></small>
-        </small>
+      <?php $posterLabel = formatPosterLabel($row['user_role'], $row['poster_org'], $row['poster_name']); ?>
+      <span class="fw-semibold" style="font-size:1.07rem;"><?= htmlspecialchars($posterLabel) ?></span><br>
+      <?php
+        $created_at = $row['created_at'];
+        $now = new DateTime();
+        $created = new DateTime($created_at);
+        $interval = $now->diff($created);
+        $displayTime = ($interval->days > 7)
+          ? date("F j, Y h:iA", strtotime($created_at))
+          : timeAgo($created_at);
+      ?>
+      <small class="text-muted"><?= htmlspecialchars($displayTime) ?></small>
     </div>
+  </div>
+
+  <!-- three-dots (admin only) -->
+  <div class="dropdown">
+    <button class="btn btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false" title="Options">
+      <i class="bi bi-three-dots-vertical fs-5"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li>
+        <a href="#" class="dropdown-item admin-edit-post"
+           data-post-id="<?= (int)$row['post_id'] ?>"
+           data-title="<?= htmlspecialchars($row['title'] ?? '', ENT_QUOTES) ?>"
+           data-content="<?= htmlspecialchars($row['content'], ENT_QUOTES) ?>">
+          <i class="bi bi-pencil-square me-2"></i>Edit post
+        </a>
+      </li>
+      <li><hr class="dropdown-divider"></li>
+      <li>
+        <a href="#" class="dropdown-item text-danger admin-delete-post"
+           data-post-id="<?= (int)$row['post_id'] ?>">
+          <i class="bi bi-trash3 me-2"></i>Delete post
+        </a>
+      </li>
+    </ul>
+  </div>
 </div>
+
                         <!-- Attachments -->
                         <?php
                         $attachments = json_decode($row['attachment'] ?? '[]', true);
@@ -305,35 +322,82 @@ if ($profile_pic && !preg_match('#^https?://#', $profile_pic)) {
         </div>
       </div>
     </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-            // AJAX post submit (Forum)
-    $('#forumPostForm').on('submit', function(e) {
-        e.preventDefault();
-        var form = this;
-        var $btn = $(form).find('button[type="submit"]');
-        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Posting...');
-        var formData = new FormData(form);
+    <!-- Edit Post Modal -->
+<div class="modal fade" id="editPostModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <form id="editPostForm">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold text-success">
+            <i class="bi bi-pencil-square me-2"></i>Edit Post
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="post_id" id="editPostId">
+          <div class="mb-3">
+            <label class="form-label">Title (optional)</label>
+            <input type="text" class="form-control" name="title" id="editPostTitle">
+          </div>
+          <div>
+            <label class="form-label">Content</label>
+            <textarea class="form-control" rows="5" name="content" id="editPostContent" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
-        $.ajax({
-            url: $(form).attr('action'),
-            type: "POST",
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                $btn.prop('disabled', false).html('Post');
-                form.reset();
-                $('#attachment-preview').html('');
-                $('#forumPostsContainer').load(location.href + ' #forumPostsContainer > *');
-            },
-            error: function() {
-                $btn.prop('disabled', false).html('Post');
-                alert('Failed to post! Try again.');
-            }
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+$('#forumPostForm').on('submit', function(e) {
+  e.preventDefault();
+  var form = this;
+  var $btn = $(form).find('button[type="submit"]');
+  $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Posting...');
+  var formData = new FormData(form);
+
+  $.ajax({
+    url: $(form).attr('action'),
+    type: "POST",
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(resp) {
+      $btn.prop('disabled', false).html('Post');
+      try { if (typeof resp === 'string') resp = JSON.parse(resp); } catch(e){}
+
+      if (resp && resp.success) {
+        Swal.fire({icon:'success', title:'Posted!', timer:1200, showConfirmButton:false})
+          .then(() => {
+            form.reset();
+            $('#attachment-preview').empty();
+            // reload post list area only
+            $('#forumPostsContainer').load(location.href + ' #forumPostsContainer > *');
+          });
+      } else if (resp && resp.reason === 'no_recipients') {
+        Swal.fire({
+          icon: 'info',
+          title: 'No audience',
+          text: resp.message || 'This organization has no members/advisers yet.'
         });
-    });
-    </script>
+      } else {
+        Swal.fire({icon:'error', title:'Error', text:(resp && resp.message) || 'Failed to post!'});
+      }
+    },
+    error: function(xhr) {
+      $btn.prop('disabled', false).html('Post');
+      const msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Failed to post! Try again.';
+      Swal.fire({icon:'error', title:'Error', text: msg});
+    }
+  });
+});
+</script>
     <script>
             // Sidebar toggle for mobile
         function toggleSidebar() {
@@ -686,6 +750,87 @@ function stopCommentPolling(postId) {
 }
 
 </script>
+<script>
+// open edit modal (unchanged, just cleaner)
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('.admin-edit-post');
+  if (!btn) return;
+  e.preventDefault();
+
+  editPostId.value      = btn.dataset.postId;
+  editPostTitle.value   = btn.dataset.title || '';
+  editPostContent.value = btn.dataset.content || '';
+
+  bootstrap.Modal.getOrCreateInstance('#editPostModal').show();
+});
+
+const editPostForm   = document.getElementById('editPostForm');
+const editPostId     = document.getElementById('editPostId');
+const editPostTitle  = document.getElementById('editPostTitle');
+const editPostContent= document.getElementById('editPostContent');
+
+// submit edit (with SweetAlert)
+editPostForm.addEventListener('submit', async function(e){
+  e.preventDefault();
+  const fd = new FormData(this);
+  fd.append('action','update');
+
+  const btn = this.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const r = await fetch('forum_post_admin_action.php', { method:'POST', body: fd });
+    const data = await r.json();
+    btn.disabled = false; btn.textContent = 'Save changes';
+
+    if (data?.ok){
+      bootstrap.Modal.getInstance(document.getElementById('editPostModal')).hide();
+      await Swal.fire({ icon:'success', title:'Post updated', timer:1200, showConfirmButton:false });
+      location.reload();
+    } else {
+      Swal.fire({ icon:'error', title:'Error', text: data?.msg || 'Update failed.' });
+    }
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Save changes';
+    Swal.fire({ icon:'error', title:'Network error', text: String(err) || 'Please try again.' });
+  }
+});
+
+// delete (with SweetAlert confirm)
+document.addEventListener('click', async function(e){
+  const btn = e.target.closest('.admin-delete-post');
+  if (!btn) return;
+  e.preventDefault();
+
+  const { isConfirmed } = await Swal.fire({
+    icon: 'warning',
+    title: 'Delete this post?',
+    text: 'This action cannot be undone.',
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#d33'
+  });
+  if (!isConfirmed) return;
+
+  const fd = new FormData();
+  fd.append('action','delete');
+  fd.append('post_id', btn.dataset.postId);
+
+  try {
+    const r = await fetch('forum_post_admin_action.php', { method:'POST', body: fd });
+    const data = await r.json();
+    if (data?.ok){
+      await Swal.fire({ icon:'success', title:'Deleted', timer:1100, showConfirmButton:false });
+      document.getElementById('post-' + btn.dataset.postId)?.remove();
+    } else {
+      Swal.fire({ icon:'error', title:'Error', text: data?.msg || 'Delete failed.' });
+    }
+  } catch (err) {
+    Swal.fire({ icon:'error', title:'Network error', text: String(err) || 'Please try again.' });
+  }
+});
+</script>
+
 
 </body>
 </html>
