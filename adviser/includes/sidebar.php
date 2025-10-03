@@ -1,14 +1,23 @@
 <?php
 $currentPage = basename($_SERVER['PHP_SELF']);
 
-// Build a correct web URL to /<role>/includes/logo.png regardless of the page
-$baseUrl = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');   // e.g. /swks/admin  | /swks/adviser | /swks/member
-$logoUrl = $baseUrl . '/swks/admin/includes/logo.png';
+// 1) Base path ng kasalukuyang page ( /admin , /adviser , /member ; minsan /swks/admin )
+$roleBase = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 
-// (optional) fallback check: if logo is missing, we'll show text instead
-$logoExists = is_file(rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $logoUrl);
+// 2) Subukan ang ilang kandidato para masakop ang may/without /swks
+$candidates = [
+  $roleBase . '/includes/logo.png',           // /admin/includes/logo.png  (o /swks/admin/… depende sa host)
+  '/swks' . $roleBase . '/includes/logo.png', // /swks/admin/includes/logo.png (kapag nire-rewrite ang /swks → /)
+  '/assets/logo.png',                         // optional shared fallback
+];
 
+$logoUrl = null;
+foreach ($candidates as $u) {
+  $abs = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $u;
+  if (is_file($abs)) { $logoUrl = $u; break; }
+}
 ?>
+
 
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
