@@ -101,7 +101,7 @@ try {
   $mail->Host       = 'smtp.gmail.com';
   $mail->SMTPAuth   = true;
   $mail->Username   = 'joshua.lerin@cbsua.edu.ph';     // <-- your Gmail/Workspace address
-  $mail->Password   = 'YOUR_16_CHAR_APP_PASSWORD';     // <-- replace with your App Password
+  $mail->Password   = 'drdj feav apsx uact';     // <-- replace with your App Password
   $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;  // or ENCRYPTION_SMTPS with Port 465
   $mail->Port       = 587;                             // or 465 with ENCRYPTION_SMTPS
 
