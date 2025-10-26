@@ -15,22 +15,18 @@ if (!$itemsQ) {
  * Returns null if file not found.
  */
 function resolve_web_image($rawPath) {
-    // normalize
-    $p = str_replace('\\', '/', trim((string)$rawPath));
+    $p = str_replace('\\', '/', trim($rawPath ?? '', " \t\n\r\0\x0B/"));
     if ($p === '') return null;
 
-    // alisin anumang leading slashes at optional "swks/"
-    $p = ltrim($p, '/');
-    if (strpos($p, 'swks/') === 0) {
-        $p = substr($p, 5); // drop leading "swks/"
+    $web = "/swks/{$p}";
+    $abs = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $web;
+    if (file_exists($abs)) return $web;
+
+    if (str_starts_with($p, 'swks/')) {
+        $web2 = '/' . $p;
+        $abs2 = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $web2;
+        if (file_exists($abs2)) return $web2;
     }
-
-    // try to serve from document root (no /swks prefix in URL)
-    $doc = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\');
-    $abs = $doc . '/' . $p;
-    if (file_exists($abs)) return '/' . $p;
-
-    // last resort: wala — hayaan bumagsak sa placeholder
     return null;
 }
 
@@ -135,6 +131,17 @@ function badge_for_status($status) {
       @media (max-width: 768px){
         .col-purpose { display:none; } /* hide purpose on small screens */
       }
+/* Dim the Borrow modal while Terms is open */
+#borrowModal.dimmed .modal-content::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.55);   /* darkness */
+  border-radius:inherit;
+  pointer-events:none;
+}
+
+
     </style>
 </head>
 <body>
@@ -179,15 +186,7 @@ function badge_for_status($status) {
                 <?php if ($imgWeb): ?>
                   <img src="<?= $imgWeb ?>" alt="<?= $nameEsc ?>">
                 <?php else: ?>
-                  <?php $placeholder = resolve_web_image('assets/no-image.png') ?: '/assets/no-image.png'; ?>
-
-<!-- card -->
-<img src="<?= $imgWeb ?: $placeholder ?>" alt="<?= $nameEsc ?: 'No image' ?>">
-
-<!-- sa table row thumbnail -->
-<?php $thumb = resolve_web_image($r['item_image'] ?? '') ?: $placeholder; ?>
-<img src="<?= $thumb ?>" class="req-thumb" alt="<?= $name ?>">
-
+                  <img src="/swks/assets/no-image.png" alt="No image">
                 <?php endif; ?>
                 <div class="card-body">
                   <div class="inventory-title"><?= $nameEsc ?></div>
@@ -328,10 +327,36 @@ function badge_for_status($status) {
             <label class="form-label fw-semibold">Purpose / Reason <small class="text-muted">(optional)</small></label>
             <textarea class="form-control" name="reason" rows="3" maxlength="500"></textarea>
           </div>
+
+         <!-- Expected return date (Due) -->
+<div class="mb-3">
+  <label for="expectedReturn" class="form-label fw-semibold">
+    Expected return date <span class="text-muted">(Due)</span>
+  </label>
+  <input
+    type="date"
+    id="expectedReturn"
+    name="expected_return_date"
+    class="form-control"
+    required
+    min="<?= date('Y-m-d') ?>"
+  >
+  <div class="form-text">Select the date you plan to return this item. Past dates are not allowed.</div>
+</div>
+
+<!-- Terms & Conditions -->
+<div class="mb-3 form-check">
+  <input class="form-check-input" type="checkbox" id="agreeTerms" required>
+  <label class="form-check-label" for="agreeTerms">
+    I have read and agree to the Terms &amp; Conditions.
+  </label>
+</div>
+
+
         </div>
 
         <div class="modal-footer border-0 px-4 pb-4">
-          <button type="submit" class="btn btn-success fw-semibold px-4">
+          <button type="submit" id="borrowSubmitBtn" class="btn btn-success fw-semibold px-4" disabled>
             <i class="bi bi-send-check me-1"></i> Submit Request
           </button>
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -340,6 +365,31 @@ function badge_for_status($status) {
     </div>
   </div>
 </div>
+<!-- Terms & Conditions Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-hidden="true" aria-labelledby="termsModalLabel">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold" id="termsModalLabel">Borrowing Terms &amp; Conditions</h5>
+        <!-- removed the header close button -->
+      </div>
+      <div class="modal-body">
+        <ol class="mb-0">
+          <li>You are responsible for the borrowed item from checkout until it is returned.</li>
+          <li>Return the item on or before the selected due date in the same working condition.</li>
+          <li>You will shoulder the cost of repair or replacement in case of loss, damage, or misuse.</li>
+          <li>Report any issues or defects immediately to the organization adviser or staff.</li>
+          <li>Follow all organization policies and safety guidelines related to the item’s use.</li>
+        </ol>
+      </div>
+      <div class="modal-footer border-0">
+        <!-- keep only I Understand; it will close the modal -->
+        <button type="button" class="btn btn-success" data-bs-dismiss="modal">I Understand</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <?php if (isset($_GET['request'])): ?>
 <script>
@@ -362,6 +412,11 @@ document.addEventListener('DOMContentLoaded', function () {
     Swal.fire({ icon: 'error', title: 'Cannot Cancel', text: 'Only your pending requests can be cancelled.', confirmButtonColor: '#dc3545' });
   <?php elseif ($_GET['request'] === 'cancel_failed'): ?>
     Swal.fire({ icon: 'error', title: 'Cancel Failed', text: 'There was a problem cancelling your request.', confirmButtonColor: '#dc3545' });
+  <?php /* >>> ADD THESE TWO NEW CASES HERE <<< */ ?>
+  <?php elseif ($_GET['request'] === 'invalid_date'): ?>
+    Swal.fire({ icon:'error', title:'Invalid Date', text:'Please select a valid due date.' });
+  <?php elseif ($_GET['request'] === 'past_date'): ?>
+    Swal.fire({ icon:'error', title:'Past Date Not Allowed', text:'Due date cannot be in the past.' });
   <?php endif; ?>
 
   // Remove ?request=... from URL after alert, keep hash
@@ -376,7 +431,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <?php endif; ?>
-
 <script>
 // Sidebar toggle for mobile (unchanged)
 function toggleSidebar() {
@@ -404,35 +458,82 @@ function switchToInventory() {
   window.location.hash = '#inventory';
 }
 </script>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Borrow modal logic
+  // ====== Elements ======
   const borrowButtons = document.querySelectorAll('.btn-request-borrow');
-  const modalEl = document.getElementById('borrowModal');
+  const modalEl  = document.getElementById('borrowModal');
+  if (!modalEl) return;
+  const form     = modalEl.querySelector('form');
   const qtyInput = document.getElementById('borrowQuantity');
-  const form = modalEl.querySelector('form');
+
+  // Due date + terms
+  const dueInput     = document.getElementById('expectedReturn');
+  const agreeTerms   = document.getElementById('agreeTerms');
+  const submitBtn    = document.getElementById('borrowSubmitBtn');
+  const termsModalEl = document.getElementById('termsModal');
+  const termsModal   = termsModalEl ? new bootstrap.Modal(termsModalEl, { backdrop: 'static', keyboard: false }) : null;
+
+  // ====== Make the Terms backdrop darker when shown ======
+  termsModalEl?.addEventListener('shown.bs.modal', () => {
+    const backs = document.querySelectorAll('.modal-backdrop');
+    const last  = backs[backs.length - 1];        // pinakabagong backdrop
+    if (last) last.classList.add('terms-backdrop'); // apply dark class
+  });
+
+  // ====== Helpers ======
+  function manilaTodayYMD() {
+    const now = new Date();
+    const localOffsetMin = -now.getTimezoneOffset();
+    const MANILA_OFFSET_MIN = 8 * 60;
+    const diffMin = MANILA_OFFSET_MIN - localOffsetMin;
+    const manilaNow = new Date(now.getTime() + diffMin * 60000);
+    const yyyy = manilaNow.getFullYear();
+    const mm = String(manilaNow.getMonth() + 1).padStart(2, '0');
+    const dd = String(manilaNow.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function ymdNDaysFrom(ymd, n) {
+    const [y,m,d] = ymd.split('-').map(Number);
+    const t = new Date(y, m-1, d);
+    t.setDate(t.getDate() + n);
+    const yyyy = t.getFullYear();
+    const mm = String(t.getMonth() + 1).padStart(2,'0');
+    const dd = String(t.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
   let currentMax = 0;
 
+  // ====== Open Borrow Modal ======
   borrowButtons.forEach(btn => {
     btn.addEventListener('click', function () {
-      const itemId = this.dataset.itemId;
-      const itemName = this.dataset.itemName;
+      const itemId    = this.dataset.itemId;
+      const itemName  = this.dataset.itemName;
       const available = parseInt(this.dataset.available || '0', 10);
 
-      document.getElementById('borrowItemId').value = itemId;
+      document.getElementById('borrowItemId').value   = itemId;
       document.getElementById('borrowItemName').value = itemName;
 
       currentMax = Math.max(0, available);
       qtyInput.value = currentMax > 0 ? 1 : 0;
-      qtyInput.max = currentMax;
+      qtyInput.max   = currentMax;
 
-      const modal = new bootstrap.Modal(modalEl);
-      modal.show();
+      // Reset due date & terms every time
+      if (dueInput) {
+        const todayPH = manilaTodayYMD();
+        dueInput.min   = todayPH;
+        dueInput.value = ymdNDaysFrom(todayPH, 3); // default +3 days
+        // dueInput.max = ymdNDaysFrom(todayPH, 14); // optional cap
+      }
+      if (agreeTerms) agreeTerms.checked = false;
+      if (submitBtn)  submitBtn.disabled = true;
+
+      new bootstrap.Modal(modalEl).show();
     });
   });
 
+  // ====== Quantity guard ======
   qtyInput.addEventListener('input', function () {
     let v = parseInt(this.value || '0', 10);
     if (isNaN(v)) v = 1;
@@ -441,6 +542,22 @@ document.addEventListener('DOMContentLoaded', function () {
     this.value = v;
   });
 
+  // ====== Terms checkbox -> show Terms modal, toggle Submit ======
+  agreeTerms?.addEventListener('change', function () {
+    if (submitBtn) submitBtn.disabled = !this.checked;
+    if (this.checked && termsModal) {
+      termsModal.show(); // buksan ang Terms kapag kinheck
+    }
+  });
+// Dim the Borrow modal while Terms is visible
+termsModalEl?.addEventListener('show.bs.modal', () => {
+  modalEl.classList.add('dimmed');
+});
+termsModalEl?.addEventListener('hidden.bs.modal', () => {
+  modalEl.classList.remove('dimmed');
+});
+
+  // ====== Form submit validation ======
   form.addEventListener('submit', function (e) {
     const v = parseInt(qtyInput.value || '0', 10);
     if (!currentMax || v < 1 || v > currentMax) {
@@ -452,20 +569,49 @@ document.addEventListener('DOMContentLoaded', function () {
           ? `Please enter a quantity between 1 and ${currentMax}.`
           : 'This item is currently unavailable.'
       });
+      return;
+    }
+
+    if (dueInput) {
+      const min = dueInput.min || manilaTodayYMD();
+      const val = dueInput.value;
+      if (!val || val < min) {
+        e.preventDefault();
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid due date',
+          text: 'Please select a due date that is today or later.'
+        });
+        return;
+      }
+    }
+
+    if (agreeTerms && !agreeTerms.checked) {
+      e.preventDefault();
+      Swal.fire({
+        icon: 'warning',
+        title: 'Agreement required',
+        text: 'You must agree to the Terms & Conditions before submitting.'
+      });
+      return;
     }
   });
 
-  // Tab persistence via hash
+  // ====== Tab persistence via hash ======
   const hash = window.location.hash;
   const inventoryBtn = document.getElementById('tab-inventory');
   const requestsBtn  = document.getElementById('tab-requests');
-  if (hash === '#requests') {
-    new bootstrap.Tab(requestsBtn).show();
-  } else if (hash === '#inventory') {
-    new bootstrap.Tab(inventoryBtn).show();
-  }
+  if (hash === '#requests') new bootstrap.Tab(requestsBtn).show();
+  else if (hash === '#inventory') new bootstrap.Tab(inventoryBtn).show();
 
-  // Clicking Cancel buttons
+  document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(btn => {
+    btn.addEventListener('shown.bs.tab', function (e) {
+      const target = e.target.getAttribute('data-bs-target');
+      window.location.hash = (target === '#pane-requests') ? '#requests' : '#inventory';
+    });
+  });
+
+  // ====== Cancel buttons ======
   document.querySelectorAll('.btn-cancel').forEach(btn => {
     btn.addEventListener('click', function() {
       const reqId = this.dataset.requestId;
@@ -481,15 +627,6 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('cancelForm').submit();
         }
       });
-    });
-  });
-
-  // Switch hash on tab change
-  document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(btn => {
-    btn.addEventListener('shown.bs.tab', function (e) {
-      const target = e.target.getAttribute('data-bs-target');
-      if (target === '#pane-requests') window.location.hash = '#requests';
-      else window.location.hash = '#inventory';
     });
   });
 });

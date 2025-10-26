@@ -11,14 +11,42 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'member') {
 $user_id = $_SESSION['user_id'];
 $org_id = $_SESSION['org_id'];
 
+date_default_timezone_set('Asia/Manila');
+
+$due_raw = trim((string)($_POST['expected_return_date'] ?? ''));
+
+// Validate due date (YYYY-MM-DD) and ensure not in the past)
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_raw)) {
+    header("Location: inventory.php?request=invalid_date");
+    exit;
+}
+try {
+    $due = new DateTime($due_raw, new DateTimeZone('Asia/Manila'));
+    $today = new DateTime('today', new DateTimeZone('Asia/Manila'));
+    if ($due < $today) {
+        header("Location: inventory.php?request=past_date");
+        exit;
+    }
+    $due_str = $due->format('Y-m-d');
+} catch (Throwable $e) {
+    header("Location: inventory.php?request=invalid_date");
+    exit;
+}
+
 $item_id = intval($_POST['item_id']);
 $quantity = intval($_POST['quantity']);
 $reason = trim($_POST['reason'] ?? '');
 $created_at = date('Y-m-d H:i:s');
 
 // ✅ Step 1: Insert into borrow_requests
-$stmt1 = $conn->prepare("INSERT INTO borrow_requests (user_id, org_id, purpose, status, created_at) VALUES (?, ?, ?, 'pending', ?)");
-$stmt1->bind_param("iiss", $user_id, $org_id, $reason, $created_at);
+$stmt1 = $conn->prepare("
+    INSERT INTO borrow_requests
+      (user_id, org_id, purpose, status, created_at, expected_return_date)
+    VALUES
+      (?, ?, ?, 'pending', ?, ?)
+");
+$stmt1->bind_param("iisss", $user_id, $org_id, $reason, $created_at, $due_str);
+
 
 if ($stmt1->execute()) {
     $request_id = $stmt1->insert_id;
