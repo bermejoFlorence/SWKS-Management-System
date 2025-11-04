@@ -132,6 +132,55 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
   --pill-grey-1: #818c96;
   --pill-grey-2: #67727c;
 }
+/* --- Harmonized KPI palette --- */
+:root{
+  --mint-300:#a5d6a7; --mint-500:#69bf7a; --mint-700:#2e7d32;
+  --teal-300:#63d2c7; --teal-600:#1ea497; --teal-700:#17897f;
+  --slate-300:#cfd8dc; --slate-600:#6b7a82; --slate-700:#51616a;
+  --amber-400:#ffc857; --amber-600:#f0a400;
+}
+
+/* text utilities */
+.text-mint  { color: var(--mint-700)  !important; }
+.text-teal  { color: var(--teal-700)  !important; }
+.text-slate { color: var(--slate-700) !important; }
+.text-amber { color: var(--amber-600) !important; }
+
+/* pill buttons (tone-on-tone) */
+.btn-mint{
+  background: linear-gradient(180deg,#8bd09a,var(--mint-500)) !important;
+  color:#fff !important; border:0 !important; border-radius:999px !important; font-weight:700 !important;
+}
+.btn-teal{
+  background: linear-gradient(180deg,var(--teal-300),var(--teal-600)) !important;
+  color:#fff !important; border:0 !important; border-radius:999px !important; font-weight:700 !important;
+}
+.btn-slate{
+  background: linear-gradient(180deg,#d7e1e5,var(--slate-600)) !important;
+  color:#fff !important; border:0 !important; border-radius:999px !important; font-weight:700 !important;
+}
+.btn-amber{
+  background: linear-gradient(180deg,var(--amber-400),var(--amber-600)) !important;
+  color:#fff !important; border:0 !important; border-radius:999px !important; font-weight:700 !important;
+}
+
+/* subtle top bars (replaces border-*) */
+.kpi-wrapper .card.border-mint::before,
+.kpi-wrapper .card.border-teal::before,
+.kpi-wrapper .card.border-slate::before,
+.kpi-wrapper .card.border-amber::before{
+  content:""; position:absolute; top:-1px; left:14px; right:14px; height:7px; border-radius:12px; opacity:.95;
+}
+.kpi-wrapper .card.border-mint::before  { background:linear-gradient(90deg,#c9eccc,var(--mint-500)); }
+.kpi-wrapper .card.border-teal::before  { background:linear-gradient(90deg,#b8efe9,var(--teal-600)); }
+.kpi-wrapper .card.border-slate::before { background:linear-gradient(90deg,#e6eff3,var(--slate-600)); }
+.kpi-wrapper .card.border-amber::before { background:linear-gradient(90deg,#ffe9a6,var(--amber-600)); }
+
+/* optional: lighter subtext tone */
+.kpi-sub.text-mint  { color: rgba(46,125,50,.85) !important; }
+.kpi-sub.text-teal  { color: rgba(23,137,127,.85) !important; }
+.kpi-sub.text-slate { color: rgba(81,97,106,.85) !important; }
+.kpi-sub.text-amber { color: rgba(240,164,0,.95) !important; }
 
 /* =========================
    CARDS (kept from prev)
@@ -387,96 +436,96 @@ $totalOngoingItems  = ($byStatusQty['approved'] ?? 0); // items currently out
 <div class="container-fluid kpi-wrapper mt-2">
   <div class="row g-4 text-center justify-content-center">
 
-    <!-- Row 1 (4 cards) -->
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-success h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-success"><?= $totalOrgs ?></div>
-          <div class="kpi-title">Total Organizations</div>
-          <div class="kpi-sub text-success mb-3">All registered orgs</div>
-          <a href="organization.php" class="btn btn-success btn-sm mt-auto">View details</a>
-        </div>
-      </div>
+<!-- Row 1 (4 cards) -->
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-mint h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-mint"><?= $totalOrgs ?></div>
+      <div class="kpi-title">Total Organizations</div>
+      <div class="kpi-sub text-mint mb-3">All registered orgs</div>
+      <a href="organization.php" class="btn btn-mint btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-primary h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-primary"><?= $totalMembers ?></div>
-          <div class="kpi-title">Total Members</div>
-          <div class="kpi-sub text-primary mb-3">Approved members</div>
-          <a href="organization.php" class="btn btn-primary btn-sm mt-auto">View details</a>
-        </div>
-      </div>
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-teal h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-teal"><?= $totalMembers ?></div>
+      <div class="kpi-title">Total Members</div>
+      <div class="kpi-sub text-teal mb-3">Approved members</div>
+      <a href="organization.php" class="btn btn-teal btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-warning h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-warning"><?= $validatedRequests ?></div>
-          <div class="kpi-title">Pending Validated Borrow Items</div>
-          <div class="kpi-sub text-warning mb-3">Awaiting admin action</div>
-          <a href="inventory.php" class="btn btn-warning btn-sm mt-auto">View details</a>
-        </div>
-      </div>
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-amber h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-amber"><?= $validatedRequests ?></div>
+      <div class="kpi-title">Pending Validated Borrow Items</div>
+      <div class="kpi-sub text-amber mb-3">Awaiting admin action</div>
+      <a href="inventory.php" class="btn btn-amber btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
-    <!-- 🆕 Total Inventory Items -->
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-info h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-info"><?= $totalInventoryItems ?></div>
-          <div class="kpi-title">Total Inventory Items</div>
-          <div class="kpi-sub text-info mb-3">All items in stock list</div>
-          <a href="inventory.php" class="btn btn-info btn-sm mt-auto text-white">View details</a>
-        </div>
-      </div>
+<!-- Total Inventory Items -->
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-slate h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-slate"><?= $totalInventoryItems ?></div>
+      <div class="kpi-title">Total Inventory Items</div>
+      <div class="kpi-sub text-slate mb-3">All items in stock list</div>
+      <a href="inventory.php" class="btn btn-slate btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
-    <!-- Row 2 (4 cards) -->
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-secondary h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-secondary"><?= $totalBorrowedItems ?></div>
-          <div class="kpi-title">Total Borrowed Items</div>
-          <div class="kpi-sub text-secondary mb-3">All borrow entries</div>
-          <a href="inventory.php" class="btn btn-secondary btn-sm mt-auto">View details</a>
-        </div>
-      </div>
+<!-- Row 2 (4 cards) -->
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-slate h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-slate"><?= $totalBorrowedItems ?></div>
+      <div class="kpi-title">Total Borrowed Items</div>
+      <div class="kpi-sub text-slate mb-3">All borrow entries</div>
+      <a href="inventory.php" class="btn btn-slate btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-success h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-success"><?= $totalApprovedItems ?></div>
-          <div class="kpi-title">Total Approved Items</div>
-          <div class="kpi-sub text-success mb-3">Approved borrow requests</div>
-          <a href="inventory.php" class="btn btn-success btn-sm mt-auto">View details</a>
-        </div>
-      </div>
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-mint h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-mint"><?= $totalApprovedItems ?></div>
+      <div class="kpi-title">Total Approved Items</div>
+      <div class="kpi-sub text-mint mb-3">Approved borrow requests</div>
+      <a href="inventory.php" class="btn btn-mint btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-primary h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-primary"><?= $totalReturnedItems ?></div>
-          <div class="kpi-title">Total Returned Items</div>
-          <div class="kpi-sub text-primary mb-3">Completed returns</div>
-          <a href="inventory.php" class="btn btn-primary btn-sm mt-auto">View details</a>
-        </div>
-      </div>
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-teal h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-teal"><?= $totalReturnedItems ?></div>
+      <div class="kpi-title">Total Returned Items</div>
+      <div class="kpi-sub text-teal mb-3">Completed returns</div>
+      <a href="inventory.php" class="btn btn-teal btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card kpi-card border-warning h-100 position-relative">
-        <div class="card-body d-flex flex-column align-items-center">
-          <div class="display-6 fw-bold text-warning"><?= $totalOngoingItems ?></div>
-          <div class="kpi-title">Total Ongoing Items</div>
-          <div class="kpi-sub text-warning mb-3">Out/issued right now</div>
-          <a href="inventory.php" class="btn btn-warning btn-sm mt-auto">View details</a>
-        </div>
-      </div>
+<div class="col-12 col-sm-6 col-lg-3">
+  <div class="card kpi-card border-slate h-100 position-relative">
+    <div class="card-body d-flex flex-column align-items-center">
+      <div class="display-6 fw-bold text-slate"><?= $totalOngoingItems ?></div>
+      <div class="kpi-title">Total Ongoing Items</div>
+      <div class="kpi-sub text-slate mb-3">Out/issued right now</div>
+      <a href="inventory.php" class="btn btn-slate btn-sm mt-auto">View details</a>
     </div>
+  </div>
+</div>
 
   </div>
 </div>

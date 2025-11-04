@@ -8,6 +8,84 @@ $carouselQ = $conn->query("SELECT * FROM web_settings WHERE type = 'carousel' OR
 // Add this for About section
 $aboutQ = $conn->query("SELECT * FROM web_settings WHERE type = 'about' LIMIT 1");
 $about = $aboutQ->fetch_assoc();
+
+$org_id  = (int)($_SESSION['org_id'] ?? 0);
+$use_org = $org_id > 0;
+
+$recActive = $appActive = [];
+$recHistory = $appHistory = [];
+
+if ($use_org) {
+  // ORG-SPECIFIC
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id=? AND role='recommending_approval' AND is_active=1 
+                          ORDER BY started_on DESC LIMIT 1");
+  $stmt->bind_param("i",$org_id);
+  $stmt->execute();
+  $recActive = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id=? AND role='approved' AND is_active=1 
+                          ORDER BY started_on DESC LIMIT 1");
+  $stmt->bind_param("i",$org_id);
+  $stmt->execute();
+  $appActive = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id=? AND role='recommending_approval' 
+                          ORDER BY started_on DESC, signatory_id DESC");
+  $stmt->bind_param("i",$org_id);
+  $stmt->execute();
+  $recHistory = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id=? AND role='approved' 
+                          ORDER BY started_on DESC, signatory_id DESC");
+  $stmt->bind_param("i",$org_id);
+  $stmt->execute();
+  $appHistory = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+
+} else {
+  // GLOBAL (admin has no org_id)
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id IS NULL AND role='recommending_approval' AND is_active=1 
+                          ORDER BY started_on DESC LIMIT 1");
+  $stmt->execute();
+  $recActive = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id IS NULL AND role='approved' AND is_active=1 
+                          ORDER BY started_on DESC LIMIT 1");
+  $stmt->execute();
+  $appActive = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id IS NULL AND role='recommending_approval' 
+                          ORDER BY started_on DESC, signatory_id DESC");
+  $stmt->execute();
+  $recHistory = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+
+  $stmt = $conn->prepare("SELECT * FROM signatories 
+                          WHERE org_id IS NULL AND role='approved' 
+                          ORDER BY started_on DESC, signatory_id DESC");
+  $stmt->execute();
+  $appHistory = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+}
+
+// make sure $history is filled after the above
+$history = [
+  'recommending_approval' => $recHistory ?? [],
+  'approved'              => $appHistory ?? [],
+];
+
 ?>
 
 <!DOCTYPE html>
@@ -22,12 +100,52 @@ $about = $aboutQ->fetch_assoc();
     <link rel="stylesheet" href="styles/style.css">
 </head>
 <style>
-.card { border-radius: 16px; transition: box-shadow 0.2s; }
-.card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.11); }
-.main-content .card { border-radius: 18px; transition: box-shadow 0.2s; }
-.main-content .card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
-.main-content { padding-top: 70px; }
-@media (max-width: 575px) { .display-4 { font-size: 2.2rem; } }
+/* === Softer SWKS theme === */
+:root{
+  --swks-green: #198754;      /* brand green */
+  --swks-blue:  #2b4c7e;      /* MUTED blue (hindi masyadong matingkad) */
+  --swks-blue-ink: #4a5f78;   /* blue-gray for inactive text */
+  --swks-tab-hover: #f3f6fb;  /* very soft hover bg */
+}
+
+/* Tabs: inactive = blue-gray text, active = green with underline */
+.nav-tabs{ border-bottom: 2px solid #e9ecef; }
+.nav-tabs .nav-link{
+  color: var(--swks-blue-ink);
+  font-weight: 700;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  padding: .75rem 1rem;
+  background: transparent;
+  transition: all .15s ease;
+}
+.nav-tabs .nav-link:hover{
+  color: var(--swks-blue);
+  background: var(--swks-tab-hover);
+}
+.nav-tabs .nav-link.active{
+  color: var(--swks-green);
+  background: transparent;
+  border-bottom-color: var(--swks-green);
+}
+.nav-tabs .nav-link .bi{ margin-right: .35rem; color: inherit; }
+
+/* Badges to match the softer palette */
+/* Approved = muted blue */
+.badge.text-bg-primary,
+span.badge.bg-primary{
+  background-color: var(--swks-blue) !important;
+  border: 1px solid rgba(0,0,0,.05);
+}
+/* Recommending = brand green */
+.badge.text-bg-success,
+span.badge.bg-success{
+  background-color: var(--swks-green) !important;
+  border: 1px solid rgba(0,0,0,.05);
+}
+
+
 </style>
 <body>
 <?php include 'includes/header.php'; ?>
@@ -54,6 +172,15 @@ $about = $aboutQ->fetch_assoc();
       <i class="bi bi-info-circle me-1"></i> About Section
     </button>
   </li>
+  <li class="nav-item" role="presentation">
+  <button class="nav-link" id="signatories-tab"
+          data-bs-toggle="tab" data-bs-target="#signatoriesTabPane"
+          type="button" role="tab" aria-controls="signatoriesTabPane"
+          aria-selected="false">
+    <i class="bi bi-person-badge me-1"></i> Signatories
+  </button>
+</li>
+
 </ul>
 
 <div class="tab-content" id="settingsTabContent">
@@ -176,6 +303,163 @@ $about = $aboutQ->fetch_assoc();
     </div>
   </div>
 </div>
+
+<!-- ========== SIGNATORIES TAB (NEW) ========== -->
+<!-- ========== SIGNATORIES TAB (NO SIGNATURE UPLOAD) ========== -->
+<div class="tab-pane fade" id="signatoriesTabPane" role="tabpanel" aria-labelledby="signatories-tab">
+  <div class="card border-0 shadow-lg rounded-4">
+    <div class="card-body">
+      <h4 class="fw-bold mb-3"><i class="bi bi-person-badge me-2"></i>Signatories</h4>
+
+      <!-- FORM (active entries only) -->
+      <form action="signatories_save.php" method="POST" id="signatoriesForm">
+        <!-- Recommending Approval -->
+        <div class="border rounded-3 p-3 mb-4">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge text-bg-success rounded-pill px-3 py-2">Recommending Approval</span>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Name</label>
+              <input type="text" class="form-control" name="recommending_name"
+       value="<?= htmlspecialchars($recActive['name'] ?? '') ?>" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Designation / Title</label>
+         <input type="text" class="form-control" name="recommending_title"
+       value="<?= htmlspecialchars($recActive['title'] ?? '') ?>" required>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approved -->
+        <div class="border rounded-3 p-3 mb-4">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge text-bg-primary rounded-pill px-3 py-2">Approved</span>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Name</label>
+             <input type="text" class="form-control" name="approved_name"
+       value="<?= htmlspecialchars($appActive['name'] ?? '') ?>" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Designation / Title</label>
+         <input type="text" class="form-control" name="approved_title"
+       value="<?= htmlspecialchars($appActive['title'] ?? '') ?>" required>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-success fw-semibold px-4 me-2">
+          <i class="bi bi-save me-1"></i> Save Signatories
+        </button>
+        <button type="button" class="btn btn-secondary px-3"
+                onclick="document.getElementById('signatoriesForm').reset()">Cancel</button>
+      </form>
+
+      <!-- HISTORY TABLES -->
+      <hr class="my-4">
+      <!-- History title styled like Signatories -->
+<h3 class="history-section-title">
+  <i class="bi bi-clock-history"></i>
+  Signatories — History
+</h3>
+
+      <!-- Recommending Approval History -->
+      <div class="mb-4">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge text-bg-success rounded-pill px-3 py-2">Recommending Approval — History</span>
+        </div>
+       <div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Name</th>
+        <th>Designation</th>
+        <th>Status</th>
+        <th>Started On</th>
+        <th>Ended On</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($history['recommending_approval'] as $r): ?>
+        <?php
+          // compute start/end
+   $start = $r['started_on'] ?: $r['updated_at'];
+$end   = $r['is_active'] ? null : ($r['ended_on'] ?: $r['updated_at']);
+
+          // nice formatting
+          $fmt   = fn($d) => $d ? date('M d, Y', strtotime($d)) : '';
+        ?>
+        <tr>
+          <td><?= htmlspecialchars($r['name']) ?></td>
+          <td><?= htmlspecialchars($r['title']) ?></td>
+          <td>
+            <?php if ($r['is_active']): ?>
+              <span class="badge bg-success">Active</span>
+            <?php else: ?>
+              <span class="badge bg-secondary">Inactive</span>
+            <?php endif; ?>
+          </td>
+          <td><?= $fmt($start) ?></td>
+          <td><?= $r['is_active'] ? '<span class="text-success fw-semibold">Present</span>' : $fmt($end) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+      </div>
+
+      <!-- Approved History -->
+      <div class="mb-2">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge text-bg-primary rounded-pill px-3 py-2">Approved — History</span>
+        </div>
+   <div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Name</th>
+        <th>Designation</th>
+        <th>Status</th>
+        <th>Started On</th>
+        <th>Ended On</th>
+      </tr>
+    </thead>
+    <tbody>
+   <?php foreach ($history['approved'] as $r): ?>
+  <?php
+    // mas safe gamit ang null coalescing (walang undefined index warning)
+    $start = $r['started_on'] ?? ($r['updated_at'] ?? null);
+    $end   = !empty($r['is_active']) ? null : ($r['ended_on'] ?? ($r['updated_at'] ?? null));
+    $fmt   = fn($d) => $d ? date('M d, Y', strtotime($d)) : '';
+  ?>
+
+        <tr>
+          <td><?= htmlspecialchars($r['name']) ?></td>
+          <td><?= htmlspecialchars($r['title']) ?></td>
+          <td>
+            <?php if ($r['is_active']): ?>
+              <span class="badge bg-success">Active</span>
+            <?php else: ?>
+              <span class="badge bg-secondary">Inactive</span>
+            <?php endif; ?>
+          </td>
+          <td><?= $fmt($start) ?></td>
+          <td><?= $r['is_active'] ? '<span class="text-success fw-semibold">Present</span>' : $fmt($end) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+</div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -277,116 +561,149 @@ $about = $aboutQ->fetch_assoc();
     window.location = "web_settings.php#aboutTabPane"; // optional: stay on about tab after reload
 </script>
 <?php endif; ?>
+<?php if (isset($_GET['signatoriesUpdateSuccess'])): ?>
+<script>
+  sessionStorage.setItem('signatoriesUpdateSuccess','1');
+  history.replaceState(null, '', 'web_settings.php#signatoriesTabPane');
+</script>
+<?php endif; ?>
+
+<?php if (isset($_GET['signatoriesRestoreSuccess'])): ?>
+<script>
+  sessionStorage.setItem('signatoriesRestoreSuccess','1');
+  // window.location = "web_settings.php#signatoriesTabPane";
+  history.replaceState(null, '', 'web_settings.php#signatoriesTabPane');
+</script>
+<?php endif; ?>
+
+<?php if (isset($_GET['signatoriesError'])): ?>
+<script>
+  sessionStorage.setItem('signatoriesUpdateError', <?= json_encode($_GET['signatoriesError']) ?>);
+  window.location = "web_settings.php#signatoriesTabPane";
+</script>
+<?php endif; ?>
 
 <script>
-  if (sessionStorage.getItem('carouselAddSuccess')) {
-    Swal.fire({
-      icon: 'success',
-      title: 'Carousel Added!',
-      text: 'The image has been successfully uploaded.',
-      confirmButtonColor: '#198754'
-    });
-    sessionStorage.removeItem('carouselAddSuccess');
+  // Sidebar toggle for mobile
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('show');
   }
-   if (sessionStorage.getItem('carouselUpdateSuccess')) {
-    Swal.fire({
-      icon: 'success',
-      title: 'Updated!',
-      text: 'The carousel item has been successfully updated.',
-      confirmButtonColor: '#198754'
+
+  // Global on-load
+  document.addEventListener('DOMContentLoaded', function () {
+    // --- Open tab from hash (e.g. #signatoriesTabPane)
+    const hash = window.location.hash;
+    if (hash) {
+      const tab = document.querySelector(`button[data-bs-target="${hash}"]`);
+      if (tab) tab.click();
+    }
+
+    // --- Edit Carousel Modal wiring
+    const editModal = document.getElementById('editCarouselModal');
+    if (editModal) {
+      editModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        document.getElementById('editCarouselId').value = button.getAttribute('data-id');
+        document.getElementById('editDesc').value = button.getAttribute('data-desc');
+        document.getElementById('editImagePreview').src = button.getAttribute('data-image');
+      });
+    }
+
+    // --- Toggle (show/hide) Carousel Modal wiring
+    const toggleModal = document.getElementById('confirmToggleModal');
+    if (toggleModal) {
+      toggleModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const settingId = button.getAttribute('data-id');
+        const currentStatus = button.getAttribute('data-status');
+
+        document.getElementById('toggleSettingId').value = settingId;
+        document.getElementById('toggleCurrentStatus').value = currentStatus;
+
+        const confirmText = document.getElementById('toggleConfirmText');
+        confirmText.textContent = currentStatus === 'visible'
+          ? "Are you sure you want to hide this image from the homepage?"
+          : "Do you want to make this image visible on the homepage?";
+      });
+    }
+
+    // --- Close sidebar when clicking outside (mobile)
+    document.addEventListener('click', function(event) {
+      const sidebar   = document.getElementById('sidebar');
+      const hamburger = document.querySelector('.hamburger-btn');
+      if (window.innerWidth <= 992 && sidebar?.classList.contains('show')) {
+        if (!sidebar.contains(event.target) && event.target !== hamburger) {
+          sidebar.classList.remove('show');
+        }
+      }
     });
-    sessionStorage.removeItem('carouselUpdateSuccess');
-  }
-   if (sessionStorage.getItem('carouselToggleSuccess')) {
-    Swal.fire({
-      icon: 'success',
-      title: 'Status Updated',
-      text: 'Carousel visibility status has been changed.',
-      confirmButtonColor: '#198754'
+    document.querySelector('.hamburger-btn')?.addEventListener('click', function(e) {
+      e.stopPropagation();
     });
-    sessionStorage.removeItem('carouselToggleSuccess');
-  }
-  if (sessionStorage.getItem('aboutUpdateSuccess')) {
+
+    // --- Restore confirmation (Signatories)
+    document.querySelectorAll('.restore-form').forEach(f=>{
+      f.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const ok = await Swal.fire({
+          icon:'question',
+          title:'Restore this entry?',
+          text:'It will become the active signatory for this role.',
+          showCancelButton:true,
+          confirmButtonText:'Yes, restore',
+          confirmButtonColor:'#198754'
+        });
+        if (ok.isConfirmed) e.target.submit();
+      });
+    });
+    const err = sessionStorage.getItem('signatoriesUpdateError');
+if (err) {
   Swal.fire({
-    icon: 'success',
-    title: 'About Section Updated!',
-    text: 'The information has been successfully updated.',
+    icon: 'error',
+    title: 'Save failed',
+    text: err.replace(/\+/g,' '),
     confirmButtonColor: '#198754'
   });
-  sessionStorage.removeItem('aboutUpdateSuccess');
+  sessionStorage.removeItem('signatoriesUpdateError');
 }
 
-</script>
 
-<script>
-         // Sidebar toggle for mobile
-            function toggleSidebar() {
-                const sidebar = document.getElementById('sidebar');
-                sidebar.classList.toggle('show');
-            }
-
-            // Sidebar auto-close on outside click (mobile)
-            document.addEventListener('click', function(event) {
-                const sidebar = document.getElementById('sidebar');
-                const hamburger = document.querySelector('.hamburger-btn');
-                if(window.innerWidth <= 992 && sidebar.classList.contains('show')) {
-                    if (!sidebar.contains(event.target) && event.target !== hamburger) {
-                        sidebar.classList.remove('show');
-                    }
-                }
-            });
-            // Prevent closing on hamburger click
-            document.querySelector('.hamburger-btn').addEventListener('click', function(e) {
-                e.stopPropagation();
-            });
-const editModal = document.getElementById('editCarouselModal');
-editModal.addEventListener('show.bs.modal', function (event) {
-  const button = event.relatedTarget;
-  document.getElementById('editCarouselId').value = button.getAttribute('data-id');
-  document.getElementById('editDesc').value = button.getAttribute('data-desc');
-  document.getElementById('editImagePreview').src = button.getAttribute('data-image');
-});
-
-const toggleModal = document.getElementById('confirmToggleModal');
-toggleModal.addEventListener('show.bs.modal', function (event) {
-  const button = event.relatedTarget;
-  const settingId = button.getAttribute('data-id');
-  const currentStatus = button.getAttribute('data-status');
-
-  document.getElementById('toggleSettingId').value = settingId;
-  document.getElementById('toggleCurrentStatus').value = currentStatus;
-
-  const confirmText = document.getElementById('toggleConfirmText');
-  confirmText.textContent = currentStatus === 'visible' 
-    ? "Are you sure you want to hide this image from the homepage?"
-    : "Do you want to make this image visible on the homepage?";
-});
-function previewImage(event, previewId) {
-  const [file] = event.target.files;
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const preview = document.getElementById(previewId);
-      preview.src = e.target.result;
-      preview.style.display = 'block';
+    // --- SweetAlert toasts (grouped here)
+    const toasts = [
+      ['carouselAddSuccess',    {title:'Carousel Added!', text:'The image has been successfully uploaded.'}],
+      ['carouselUpdateSuccess', {title:'Updated!', text:'The carousel item has been successfully updated.'}],
+      ['carouselToggleSuccess', {title:'Status Updated', text:'Carousel visibility status has been changed.'}],
+      ['aboutUpdateSuccess',    {title:'About Section Updated!', text:'The information has been successfully updated.'}],
+      ['signatoriesUpdateSuccess', {title:'Signatories Saved!', text:'Signatories have been updated.'}],
+      ['signatoriesRestoreSuccess', {title:'Restored', text:'The selected signatory has been restored as active.'}],
+    ];
+    for (const [key, cfg] of toasts) {
+      if (sessionStorage.getItem(key)) {
+        Swal.fire({ icon:'success', confirmButtonColor:'#198754', ...cfg });
+        sessionStorage.removeItem(key);
+      }
     }
+  });
+
+  // Helpers you already use
+  function previewImage(event, previewId) {
+    const [file] = event.target.files || [];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const preview = document.getElementById(previewId);
+      if (preview) {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      }
+    };
     reader.readAsDataURL(file);
   }
-}
-function resetAboutForm() {
-  document.getElementById('aboutForm').reset();
-  // Optionally reset image preview to old image
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  // If there's a hash in the URL, show the correct tab
-  const hash = window.location.hash;
-  if(hash) {
-    const tab = document.querySelector(`button[data-bs-target="${hash}"]`);
-    if(tab) tab.click();
+  function resetAboutForm() {
+    document.getElementById('aboutForm')?.reset();
   }
-});
-
 </script>
+
 </body>
 </html>

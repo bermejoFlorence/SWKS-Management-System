@@ -170,6 +170,15 @@ if (!$result) {
     </div>
     <div class="card border-0 shadow-lg rounded-4">
       <div class="card-body p-0">
+        <!-- Top-right search above table -->
+<div class="table-tools d-flex justify-content-end align-items-center gap-2 p-3 pb-2">
+  <div class="input-group" style="max-width: 320px;">
+    <span class="input-group-text bg-white border-2"><i class="bi bi-search"></i></span>
+    <input type="text" id="orgSearch" class="form-control border-2"
+           placeholder="Search organization...">
+  </div>
+</div>
+
         <div class="table-responsive">
           <table class="table align-middle table-hover mb-0">
             <thead class="table-success rounded-4">
@@ -182,43 +191,45 @@ if (!$result) {
               </tr>
             </thead>
             <tbody>
-              <?php
-              $count = 1;
-              while ($row = $result->fetch_assoc()) {
-                  // Remove 'SWKS' prefix if present
-                  $orgName = trim(preg_replace('/^SWKS\s*/i', '', $row['org_name']));
+             <?php
+$count = 1;
+while ($row = $result->fetch_assoc()) {
+    // Remove 'SWKS' prefix if present (display only)
+    $orgName = trim(preg_replace('/^SWKS\s*/i', '', $row['org_name']));
+    if (empty($orgName)) { continue; }
 
-                  if (empty($orgName)) {
-                      continue;
-                  }
+    $adviserName = $row['adviser_fname'] 
+        ? '<span class="fw-semibold" style="color:var(--swks-green)">' . htmlspecialchars($row['adviser_fname']) . '</span>' 
+        : '<span class="swks-badge-unassigned">Unassigned</span>';
 
-                  $adviserName = $row['adviser_fname'] 
-                      ? '<span class="fw-semibold" style="color:var(--swks-green)">' . htmlspecialchars($row['adviser_fname']) . '</span>' 
-                      : '<span class="swks-badge-unassigned">Unassigned</span>';
+    $members = $row['total_members'] ? (int)$row['total_members'] : 0;
 
-                  $members = $row['total_members'] ? $row['total_members'] : 0;
+    echo "<tr class='org-row' data-name='".htmlspecialchars(strtolower($orgName), ENT_QUOTES)."'>";
+    echo "<td class='fw-bold'>{$count}</td>";
+    echo "<td class='fw-semibold' style='color:var(--swks-green-dark)'>".htmlspecialchars($orgName)."</td>";
+    echo "<td>{$adviserName}</td>";
+    echo "<td>
+            <span class='swks-badge-members'>
+              <i class='bi bi-people-fill me-1'></i>{$members}
+            </span>
+          </td>";
+    echo "<td class='text-center'>
+            <a href='org_details.php?org_id={$row['org_id']}' class='btn btn-swks-outline btn-sm rounded-pill d-inline-flex align-items-center justify-content-center px-3 fw-semibold'>
+              <i class='bi bi-eye me-1'></i>
+              View Details
+            </a>
+          </td>";
+    echo "</tr>";
 
-                  echo "<tr>";
-                  echo "<td class='fw-bold'>" . $count . "</td>";
-                  echo "<td class='fw-semibold' style='color:var(--swks-green-dark)'>" . htmlspecialchars($orgName) . "</td>";
-                  echo "<td>{$adviserName}</td>";
-                  echo "<td>
-                          <span class='swks-badge-members'>
-                              <i class='bi bi-people-fill me-1'></i>{$members}
-                          </span>
-                        </td>";
-                  echo "<td class='text-center'>
-                      <a href='org_details.php?org_id={$row['org_id']}' class='btn btn-swks-outline btn-sm rounded-pill d-inline-flex align-items-center justify-content-center px-3 fw-semibold'>
-                          <i class='bi bi-eye me-1'></i>
-                          View Details
-                      </a>
-                    </td>";
-                  echo "</tr>";
+    $count++;
+}
 
-                  $count++;
-              }
+// optional “no results” row
+echo "<tr id='orgNoResults' class='d-none'>
+        <td colspan='5' class='text-center text-muted py-4'>No organizations found.</td>
+      </tr>";
+?>
 
-              ?>
             </tbody>
           </table>
         </div>
@@ -295,5 +306,34 @@ if (!$result) {
             e.stopPropagation();
         });
     </script>
+
+    <script>
+(function(){
+  const $q    = document.getElementById('orgSearch');
+  const rows  = () => Array.from(document.querySelectorAll('tr.org-row'));
+  const $none = document.getElementById('orgNoResults');
+
+  const norm = s => (s||'')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // remove accents
+    .trim();
+
+  function applyFilter() {
+    const q = norm($q.value);
+    let shown = 0;
+    rows().forEach(tr => {
+      const name = tr.dataset.name || '';
+      const hit = name.includes(q);
+      tr.style.display = hit ? '' : 'none';
+      if (hit) shown++;
+    });
+    if ($none) $none.classList.toggle('d-none', shown !== 0);
+  }
+
+  $q?.addEventListener('input', applyFilter);
+})();
+</script>
+
 </body>
 </html>
