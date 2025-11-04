@@ -1,5 +1,5 @@
 <?php
-// admin/includes/notif/list.php
+// admin/includes/notif_list.php
 include_once __DIR__ . '/../../database/db_connection.php';
 include_once __DIR__ . '/functions.php';
 if (session_status() == PHP_SESSION_NONE) session_start();
@@ -108,8 +108,10 @@ if ($userId) {
     ?>
     <li>
       <a href="<?= htmlspecialchars($href) ?>"
-         class="dropdown-item d-flex justify-content-between align-items-start <?= $notif_class ?>"
-         style="white-space:normal;">
+   class="dropdown-item d-flex justify-content-between align-items-start <?= $notif_class ?> notif-item"
+   data-notif-id="<?= (int)$notif['notification_id'] ?>"
+   style="white-space:normal;">
+
         <div>
           <div><?= $notifMsg ?></div>
           <small class="text-muted"><?= $notifTime ?></small>

@@ -55,7 +55,7 @@ if ($userId) {
         <div class="dropdown">
             <?php if ($profilePic): ?>
                 <!-- Show profile picture if available -->
-                <img src="<?= strpos($profilePic, 'http') === 0 ? $profilePic : 'https://swks-organization.com/' . htmlspecialchars($profilePic) ?>" alt="Profile" class="rounded-circle" width="32" height="32" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="object-fit:cover;cursor:pointer;">
+                <img src="<?= strpos($profilePic, 'http') === 0 ? $profilePic : '/swks/' . htmlspecialchars($profilePic) ?>" alt="Profile" class="rounded-circle" width="32" height="32" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="object-fit:cover;cursor:pointer;">
             <?php else: ?>
                 <!-- Fallback to icon -->
                 <i class="bi bi-person-circle" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:1.7rem; cursor:pointer;"></i>
@@ -102,7 +102,7 @@ if ($userId) {
       <div class="modal-body text-center pt-0">
         <div class="profile-icon d-inline-block rounded-circle p-1 shadow" style="margin-bottom:10px;">
           <?php if ($profilePic): ?>
-             <img src="https://swks-organization.com/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'uploads/default.jpg') ?>"
+             <img src="/swks/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'uploads/default.jpg') ?>"
         alt="Avatar" class="rounded-circle border border-2" width="52" height="52" style="object-fit:cover;">
           <?php else: ?>
             <i class="bi bi-person-circle" style="font-size:4.3rem; color:#186a1a;"></i>
@@ -142,7 +142,7 @@ if ($userId) {
           <div class="text-center mb-3">
             <label for="profilePicInput" class="d-block mb-2" style="cursor:pointer;">
               <?php if ($profilePic): ?>
-                 <img id="profilePicPreview" src="/https://swks-organization.com/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'uploads/default.jpg') ?>"
+                 <img id="profilePicPreview" src="/swks/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'uploads/default.jpg') ?>"
         alt="Avatar" class="rounded-circle border border-2" width="74" height="74" style="object-fit:cover;">
 
         <?php else: ?>
@@ -230,41 +230,61 @@ function closeProfileOpenEditProfile() {
 </script>
 
 <script>
-function updateNotifBadge() {
-    fetch('includes/notif_count.php')
-        .then(response => response.text())
-        .then(function(count) {
-            var badge = document.getElementById('notifBadge');
-            count = parseInt(count);
-            if (badge) {
-                if (count > 0) {
-                    badge.style.display = '';
-                    badge.innerText = count;
-                } else {
-                    badge.style.display = 'none';
-                }
-            }
-        });
+// --- Badge helpers ---
+function setNotifBadge(n){
+  const b = document.getElementById('notifCount');
+  if (!b) return;
+  b.textContent = n;
+  b.style.display = n > 0 ? '' : 'none';
+}
+function refreshNotifCount(){
+  return fetch('includes/notif_count.php', { cache: 'no-store' })
+    .then(r => r.text())
+    .then(txt => { const n = parseInt(txt, 10) || 0; setNotifBadge(n); })
+    .catch(() => {});
 }
 
-// Call once on load
-updateNotifBadge();
+document.addEventListener('DOMContentLoaded', () => {
+  // initial + optional polling
+  refreshNotifCount();
+  setInterval(refreshNotifCount, 8000);
+});
 
-// Auto-update every 3 seconds
-setInterval(updateNotifBadge, 3000);
+// --- Mark single notif as seen BEFORE navigating ---
+document.addEventListener('click', function(e){
+  const a = e.target.closest('a.notif-item');
+  if (!a) return;
 
-function updateNotifList() {
-    fetch('includes/notif_list.php')
-        .then(response => response.text())
-        .then(function(html) {
-            document.getElementById('notifDropdownMenu').innerHTML = html;
-        });
-}
+  const id   = a.dataset.notifId;
+  const href = a.getAttribute('href') || '#';
+  if (!id) return; // walang notif_id? proceed na lang normally
 
-// Call once on load
-updateNotifList();
+  e.preventDefault();
 
-// Auto-update every 3 seconds
-setInterval(updateNotifList, 3000);
+  // Optimistic decrement sa UI
+  const badge = document.getElementById('notifCount');
+  if (badge) {
+    const cur = parseInt(badge.textContent || '0', 10) || 0;
+    setNotifBadge(Math.max(cur - 1, 0));
+  }
 
+  // Call the endpoint (GET version mo)
+  fetch('includes/mark_notification_seen.php?id=' + encodeURIComponent(id), { cache:'no-store' })
+    .finally(() => {
+      // Sync count (optional) then navigate
+      refreshNotifCount().finally(() => { window.location.href = href; });
+    });
+});
+
+// --- (Optional) Reload notif list when dropdown opens ---
+document.addEventListener('DOMContentLoaded', () => {
+  const dd = document.getElementById('notifDropdown');
+  if (!dd) return;
+  dd.addEventListener('click', () => {
+    if (window.jQuery) {
+      $('#notifList').load('includes/notif_list.php');
+    }
+  });
+});
 </script>
+
