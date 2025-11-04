@@ -9,23 +9,23 @@ $orgName = $_SESSION['org_name'] ?? 'Members';
 /* Members of adviser’s org (approved only) + Date Joined from user.created_at */
 $members = [];
 if ($org_id) {
- $sql = "
+$sql = "
   SELECT
     md.member_id,
     md.user_id,
     md.full_name,
     md.course,
     md.year_level,
-    md.status,                 -- ← include this
+    md.status,
     u.created_at AS joined_at
   FROM member_details md
-  LEFT JOIN user u ON u.user_id = md.user_id
+  LEFT JOIN `user` u ON u.user_id = md.user_id
   WHERE md.preferred_org = ?
-    AND md.status IN ('approved','deactivated','deactivate','')  -- include both spellings + blank
-  ORDER BY (md.status='approved') DESC, md.full_name ASC
+    AND LOWER(TRIM(COALESCE(md.status,''))) IN ('approved','deactivated','deactivate','')
+  ORDER BY
+    (LOWER(TRIM(md.status))='approved') DESC,
+    TRIM(COALESCE(md.full_name,'')) ASC
 ";
-
-
 
   if ($stmt = $conn->prepare($sql)) {
     $stmt->bind_param('i', $org_id);
@@ -35,6 +35,22 @@ if ($org_id) {
     $stmt->close();
   }
 }
+/* Distinct course options for this org (para hindi sobrang haba) */
+$courseOptions = [];
+if ($org_id) {
+  $stmt = $conn->prepare("
+    SELECT DISTINCT course
+    FROM member_details
+    WHERE preferred_org = ? AND course <> ''
+    ORDER BY course ASC
+  ");
+  $stmt->bind_param('i', $org_id);
+  $stmt->execute();
+  $cres = $stmt->get_result();
+  while ($r = $cres->fetch_assoc()) { $courseOptions[] = $r['course']; }
+  $stmt->close();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -186,7 +202,28 @@ th.col-action { width: 180px; }   /* dati 150px */
   <?php include 'includes/sidebar.php'; ?>
 
   <div class="main-content">
-    <h2 class="page-title"><?= htmlspecialchars($orgName) ?> Members</h2>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h2 class="page-title mb-0"><?= htmlspecialchars($orgName) ?> Members</h2>
+
+  <!-- Filters (kanan) -->
+  <div class="d-flex align-items-center gap-2">
+    <!-- Course filter -->
+    <select id="courseFilter" class="form-select form-select-sm" style="min-width:260px;">
+      <option value="">All Courses</option>
+      <?php foreach ($courseOptions as $c): ?>
+        <option value="<?= htmlspecialchars(strtolower($c), ENT_QUOTES) ?>">
+          <?= htmlspecialchars($c) ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
+
+    <!-- Real-time search -->
+    <div class="input-group input-group-sm" style="width:260px;">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input id="searchInput" type="text" class="form-control" placeholder="Search name…">
+    </div>
+  </div>
+</div>
 
     <div class="card shadow-sm">
       <div class="card-body p-0">
@@ -218,7 +255,10 @@ th.col-action { width: 180px; }   /* dati 150px */
       $statusText = ucfirst($statusNorm);
       $joined     = $m['joined_at'] ?? null;
     ?>
-    <tr>
+    <tr class="member-row"
+    data-name="<?= htmlspecialchars(strtolower($m['full_name'] ?? ''), ENT_QUOTES) ?>"
+    data-course="<?= htmlspecialchars(strtolower($m['course'] ?? ''), ENT_QUOTES) ?>">
+
       <td><?= $i++ ?></td>
 
       <!-- Name + status badge -->
@@ -265,6 +305,11 @@ th.col-action { width: 180px; }   /* dati 150px */
     </tr>
   <?php endforeach; ?>
 <?php endif; ?>
+
+<tr id="noMatchRow" style="display:none;">
+  <td colspan="6" class="text-center text-muted py-4">No matching members.</td>
+</tr>
+
 </tbody>
 
 
@@ -350,6 +395,42 @@ document.addEventListener('click', async (e) => {
 });
 </script>
 
+<script>
+(function(){
+  const $q = document.getElementById('searchInput');
+  const $c = document.getElementById('courseFilter');
+  const rows = Array.from(document.querySelectorAll('tbody tr.member-row'));
+  const noMatch = document.getElementById('noMatchRow');
+
+  function applyFilters(){
+    const q = ($q?.value || '').trim().toLowerCase();
+    const c = ($c?.value || '').trim(); // already lowercase in value
+    let shown = 0;
+
+    rows.forEach(row => {
+      const name = row.dataset.name || '';
+      const course = row.dataset.course || '';
+      const matchText = !q || name.includes(q) || course.includes(q);
+      const matchCourse = !c || course === c;
+      const show = matchText && matchCourse;
+      row.style.display = show ? '' : 'none';
+      if (show) shown++;
+    });
+
+    if (noMatch) noMatch.style.display = shown ? 'none' : '';
+  }
+
+  $q?.addEventListener('input', applyFilters);   // real-time
+  $c?.addEventListener('change', applyFilters);  // dropdown
+
+  // optional: load from URL (?q=...&course=...)
+  const params = new URLSearchParams(location.search);
+  if (params.has('q')) $q.value = params.get('q');
+  if (params.has('course')) $c.value = params.get('course').toLowerCase();
+
+  applyFilters();
+})();
+</script>
 
 </body>
 </html>

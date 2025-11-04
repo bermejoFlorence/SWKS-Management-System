@@ -228,6 +228,33 @@ $orgName = $orgName ?: 'Organization';
 #eventModal .form-control-color{ width:48px; height:36px; padding:4px; border-radius:10px; border:1.5px solid #e3ede6; background:#fff; }
 #eventModal .btn-close{ filter: invert(40%) sepia(12%) saturate(400%) hue-rotate(90deg) brightness(90%); opacity:.8; }
 #eventModal .btn-close:hover{ opacity:1; }
+.text-brand   { color: var(--mint-700) !important; }
+.link-brand   { color: var(--mint-700) !important; text-decoration: underline; }
+.link-brand:hover { color: var(--mint-600) !important; }
+.main-content .card.border-brand::before{
+  content:""; position:absolute; left:14px; right:14px; top:-1px; height:8px; border-radius:12px;
+  background: linear-gradient(90deg,#a5d6a7,#66bb6a);
+}
+/* --- Brand Teal variant (harmonized with mint theme) --- */
+:root{
+  --brand-teal-400:#41c7bb;
+  --brand-teal-600:#1ea497;
+  --brand-teal-700:#17897f;
+}
+
+/* pill/number/link color */
+.text-teal { color: var(--brand-teal-700) !important; }
+.link-teal { color: var(--brand-teal-700) !important; text-decoration: underline; }
+.link-teal:hover { color: var(--brand-teal-600) !important; }
+
+/* top highlight bar like your green/yellow cards */
+.main-content .card.border-teal::before{
+  content:""; position:absolute; left:14px; right:14px; top:-1px; height:8px; border-radius:12px;
+  background: linear-gradient(90deg, var(--brand-teal-400), var(--brand-teal-700));
+}
+
+/* optional: slightly teal-ish card border */
+.main-content .card.border-teal{ border-color:#cfeee9; }
 
 </style>
 <body>
@@ -253,13 +280,14 @@ $orgName = $orgName ?: 'Organization';
 
   <!-- Card 2: Total Members (approved) -->
   <div class="col-12 col-sm-6 col-lg-3 d-flex">
-    <div class="card flex-fill border-primary shadow-sm h-100">
-      <div class="card-body text-center">
-        <div class="display-4 fw-bold text-primary"><?= (int)$totalMembers ?></div>
-        <div class="h5 fw-bold mb-2">Total Members</div>
-        <a href="members.php?status=approved" class="fw-semibold text-primary text-decoration-underline">View details</a>
-      </div>
-    </div>
+ <div class="card flex-fill border-teal shadow-sm h-100">
+  <div class="card-body text-center">
+    <div class="display-4 fw-bold text-teal"><?= (int)$totalMembers ?></div>
+    <div class="h5 fw-bold mb-2">Total Members</div>
+    <a href="organization.php" class="fw-semibold link-teal">View details</a>
+  </div>
+</div>
+
   </div>
 
   <!-- Card 3: Pending Borrow Requests -->

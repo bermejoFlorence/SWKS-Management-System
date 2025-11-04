@@ -28,6 +28,56 @@ $res = $conn->query($sql);
 if ($res) {
   while ($row_org = $res->fetch_assoc()) { $orgs[] = $row_org; }
 }
+/* --- compute School ID (supports school_id or student_id) --- */
+$schoolId = $row['school_id'] ?? $row['student_id'] ?? '';
+/* --- Active signatories (org-specific with global fallback) --- */
+$recSig = $appSig = [];
+$org_id = (int)($_SESSION['org_id'] ?? 0);
+
+$fetchRole = function(string $role) use ($conn, $org_id) {
+  // 1) Try ORG-SPECIFIC
+  if ($org_id > 0) {
+    if ($stmt = $conn->prepare("
+      SELECT name, title
+      FROM signatories
+      WHERE org_id = ? AND role = ? AND is_active = 1
+      ORDER BY started_on DESC, signatory_id DESC
+      LIMIT 1
+    ")) {
+      $stmt->bind_param("is", $org_id, $role);
+      if ($stmt->execute()) {
+        $res = $stmt->get_result();
+        $row = $res ? $res->fetch_assoc() : null;
+        $stmt->close();
+        if (!empty($row)) return $row; // ✅ found org-specific
+      } else {
+        $stmt->close();
+      }
+    }
+  }
+  // 2) Fallback to GLOBAL
+  if ($stmt = $conn->prepare("
+    SELECT name, title
+    FROM signatories
+    WHERE org_id IS NULL AND role = ? AND is_active = 1
+    ORDER BY started_on DESC, signatory_id DESC
+    LIMIT 1
+  ")) {
+    $stmt->bind_param("s", $role);
+    if ($stmt->execute()) {
+      $res = $stmt->get_result();
+      $row = $res ? $res->fetch_assoc() : null;
+      $stmt->close();
+      return $row ?: [];
+    } else {
+      $stmt->close();
+    }
+  }
+  return [];
+};
+
+$recSig = $fetchRole('recommending_approval');
+$appSig = $fetchRole('approved');
 
 /* --- helpers --- */
 function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
@@ -254,6 +304,7 @@ body {
         </div>
 
         <div class="info-row"><label>Year Level:</label><span><?= h($row['year_level']) ?></span></div>
+        <div class="info-row"><label>School ID:</label><span><?= h($schoolId) ?></span></div>
         <div class="info-row"><label>Age:</label><span><?= h($row['age']) ?></span></div>
         <div class="info-row"><label>Email Address:</label><span><?= h($row['email']) ?></span></div>
         <div class="info-row"><label>Occupation (Mother):</label><span><?= h($row['mother_occupation']) ?></span></div>
@@ -290,22 +341,23 @@ body {
     <!-- Recommending and Approval Section -->
    <div class="approval-section">
     <!-- Recommending Approval -->
-    <div class="approval-box">
-        <div style="margin-bottom:30px;"><strong>Recommending Approval:</strong></div>
-        <br>
-        <div><strong><u>BABY ELOISA L. PEÑANO</u></strong></div>
-        <div>Coordinator, ACA</div>
-        <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
-    </div>
+<div class="approval-box">
+  <div style="margin-bottom:30px;"><strong>Recommending Approval:</strong></div>
+  <br>
+  <div><strong><u><?= h(strtoupper($recSig['name'] ?? '')) ?></u></strong></div>
+  <div><?= h($recSig['title'] ?? '') ?></div>
+  <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
+</div>
 
-    <!-- Approved -->
-    <div class="approval-box">
-        <div style="margin-bottom:30px;"><strong>Approved:</strong></div>
-        <br>
-        <div><strong><u>MERCY M. ALMONTE</u></strong></div>
-        <div>Unit Head, SWKS</div>
-        <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
-    </div>
+<div class="approval-box">
+  <div style="margin-bottom:30px;"><strong>Approved:</strong></div>
+  <br>
+  <div><strong><u><?= h(strtoupper($appSig['name'] ?? '')) ?></u></strong></div>
+  <div><?= h($appSig['title'] ?? '') ?></div>
+  <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
+</div>
+
+
 </div>
     <!-- Footer -->
     <div class="footer-note">
