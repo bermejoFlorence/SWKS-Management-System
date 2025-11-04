@@ -105,6 +105,132 @@ $orgName = $orgName ?: 'Organization';
     #dayEventsList .list-group-item{background:#1f2937;color:#fff;border-color:#1f2937}
     #dayEventsList .list-group-item .text-muted{color:rgba(255,255,255,.75)!important}
     #dayEventsList .list-group-item:hover,#dayEventsList .list-group-item:focus{background:#111827;color:#fff}
+    /* === SWKS Green Calendar Theme (FullCalendar + Bootstrap5) === */
+.calendar-card {
+  /* Tweak these 4 tokens if you want a slightly different green */
+  --swks-green-100: #eaf7ef;
+  --swks-green-400: #7bd29a;
+  --swks-green-600: #45ba6f;
+  --swks-green-700: #2ea85c;
+  --swks-green-800: #1f7a3c;
+}
+
+/* Title (November 2025) */
+.calendar-card .fc .fc-toolbar-title{
+  color: var(--swks-green-800);
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+/* Make grid rounded like a card */
+.calendar-card .fc .fc-scrollgrid{
+  border-radius: 18px;
+  overflow: hidden;
+  border-color: #e7efe9;
+}
+
+/* Header (Sun–Sat) */
+.calendar-card .fc .fc-col-header th{
+  background: var(--swks-green-100);
+  color: var(--swks-green-800);
+  border-color: #d9e8dd;
+}
+.calendar-card .fc .fc-col-header-cell-cushion{ font-weight: 700; }
+
+/* Day cells & lines (subtle) */
+.calendar-card .fc .fc-daygrid-day,
+.calendar-card .fc .fc-timegrid-slot{
+  border-color: #eef4ef;
+}
+
+/* Today highlight */
+.calendar-card .fc .fc-day-today{
+  background: rgba(69,186,111,.10) !important;
+}
+.calendar-card .fc .fc-day-today .fc-daygrid-day-number{
+  font-weight: 800;
+  color: var(--swks-green-800);
+}
+
+/* Prev/Next buttons as round green pills */
+.calendar-card .fc .fc-prev-button,
+.calendar-card .fc .fc-next-button{
+  width: 42px; height: 42px;
+  border-radius: 999px !important;
+  background: var(--swks-green-600);
+  border-color: var(--swks-green-600);
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(69,186,111,.25);
+}
+.calendar-card .fc .fc-prev-button:hover,
+.calendar-card .fc .fc-next-button:hover{
+  background: var(--swks-green-700);
+  border-color: var(--swks-green-700);
+}
+
+/* "today" button as soft green pill */
+.calendar-card .fc .fc-today-button.btn{
+  border-radius: 999px !important;
+  background: var(--swks-green-400);
+  border-color: var(--swks-green-400);
+  color: #fff;
+  font-weight: 700;
+}
+.calendar-card .fc .fc-today-button.btn:disabled{
+  opacity: .65; color:#fff; background: var(--swks-green-400); border-color: var(--swks-green-400);
+}
+
+/* View switcher (month / week / day / list) – green pills */
+.calendar-card .fc .btn{
+  border-radius: 999px !important;
+  font-weight: 700;
+  box-shadow: 0 3px 12px rgba(69,186,111,.12);
+}
+.calendar-card .fc .btn-primary{
+  background: var(--swks-green-600);
+  border-color: var(--swks-green-600);
+}
+.calendar-card .fc .btn-primary:hover,
+.calendar-card .fc .btn-primary:focus{
+  background: var(--swks-green-700);
+  border-color: var(--swks-green-700);
+}
+.calendar-card .fc .btn-primary.active,
+.calendar-card .fc .btn-primary:active{
+  background: var(--swks-green-800);
+  border-color: var(--swks-green-800);
+}
+
+/* Event chips = green with white text */
+.calendar-card .fc .fc-event{
+  background: var(--swks-green-600);
+  border-color: var(--swks-green-600);
+  border-radius: 10px;
+}
+.calendar-card .fc .fc-daygrid-event .fc-event-main,
+.calendar-card .fc .fc-timegrid-event .fc-event-main,
+.calendar-card .fc .fc-timegrid-event .fc-event-time{
+  color: #fff !important;
+}
+
+/* "+N more" link color */
+.calendar-card .fc .fc-daygrid-more-link{
+  color: var(--swks-green-800);
+  font-weight: 700;
+  text-decoration: underline;
+}
+.calendar-card .fc .fc-daygrid-more-link:hover{
+  color: var(--swks-green-700);
+}
+
+/* Past days (light gray-green) */
+.calendar-card .fc .fc-daygrid-day.fc-day-past,
+.calendar-card .fc .fc-timegrid-col.fc-day-past{
+  background: #f3f7f4;
+}
+.calendar-card .fc-day-past .fc-daygrid-day-number{ color:#8aa295; }
+
   </style>
 
   <script>window.ORG_NAME = <?= json_encode($orgName) ?>;</script>
