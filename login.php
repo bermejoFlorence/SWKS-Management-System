@@ -1,159 +1,112 @@
 <?php include 'includes/header.php'; ?>
-
 <style>
-/* Whole page background */
-body { min-height: 100vh; margin: 0; }
+/* ===== Base / Reset ===== */
+*,*::before,*::after{ box-sizing:border-box; }
 
-/* Container for centering */
-.login-container{
-  min-height: 83vh;
-  display:flex; justify-content:center; align-items:center;
-  padding:0 10px;
+:root{
+  --green:#1fab4c;
+  --green-d:#159140;
+  --green-dd:#117c37;
+  --bg:#f7fff9;
+  --input-h:48px;   /* input height */
 }
 
-/* Login box */
+body{
+  margin:0; min-height:100vh; background:#f4f7f5;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+
+/* ===== Container ===== */
+.login-container{
+  min-height:83vh; display:flex; align-items:center; justify-content:center; padding:0 10px;
+}
+
+/* ===== Card ===== */
 .login-box{
   background:#fff;
-  padding:40px 32px 32px 32px;
+  padding:32px 24px 28px;
   border-radius:18px;
   box-shadow:0 6px 28px rgba(0,0,0,.14);
-  width:100%; max-width:350px; margin:40px auto;
+  width:100%; max-width:600px;       /* card width (hindi natin gagalawin inputs dito) */
+  margin:40px auto;
   display:flex; flex-direction:column; align-items:center;
-  position:relative; animation:fadeIn .7s;
+  animation:fadeIn .7s ease;
 }
 @keyframes fadeIn{ from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
 
 .login-box h2{
-  text-align:center; color:#000; margin-bottom:32px;
-  font-weight:700; letter-spacing:1px; font-size:2rem;
+  text-align:center; color:#000; margin-bottom:24px;
+  font-weight:800; letter-spacing:.5px; font-size:2rem;
 }
 
-/* Inputs (email + password even when toggled to text) */
+/* >>> CRUCIAL: palawakin ang form para sumagad ang inputs <<< */
+.login-box form{ width:100%; }
+
+/* ===== Inputs ===== */
 .login-box input[type="email"],
 .login-box input[type="password"],
 .login-box input[type="text"]#password{
   width:100%;
-  padding:13px 12px;
-  margin-bottom:20px;
-  border:1.5px solid #1fab4c;
-  border-radius:8px;
-  font-size:16px; outline:none;
-  background:#f7fff9;
-  transition:border .2s;
+  height:var(--input-h);
+  padding:10px 16px;
+  margin-bottom:16px;
+  border:1.5px solid var(--green);
+  border-radius:12px;
+  font-size:16px; outline:none; background:var(--bg);
+  transition:border-color .2s ease;
 }
 .login-box input[type="email"]:focus,
 .login-box input[type="password"]:focus,
-.login-box input[type="text"]#password:focus{ border-color:#159140; }
+.login-box input[type="text"]#password:focus{ border-color:var(--green-d); }
 
-/* Submit button ONLY */
-.login-box .submit-btn{
-  width:100%; padding:13px 0;
-  background:linear-gradient(90deg,#1fab4c,#159140 80%);
-  color:#fff; border:none; border-radius:8px;
-  font-size:18px; font-weight:700; letter-spacing:1px;
-  transition:background .2s; box-shadow:0 2px 10px rgba(41,128,65,.08);
-  cursor:pointer;
-}
-.login-box .submit-btn:hover,
-.login-box .submit-btn:focus{
-  background:linear-gradient(90deg,#159140,#117c37 90%);
-}
+/* Extra right padding para sa eye button */
+#password{ padding-right:52px; }
 
-/* Error message */
-.login-box .error{
-  color:#c0392b; text-align:center; margin-bottom:16px;
-  font-size:15px; font-weight:600;
+/* ===== Password reveal (perfect vertical center) ===== */
+.password-field{
+  position:relative; width:100%; height:var(--input-h); margin-bottom:16px;
 }
-
-/* Password reveal */
-.password-field{ position:relative; margin-bottom:20px; }
-.password-field input{ padding-right:44px; } /* space for the eye */
+.password-field>input{
+  height:100%; margin:0; padding-right:52px;
+}
 .toggle-pass{
-  position:absolute; right:10px; top:50%; transform:translateY(-50%);
-  background:transparent; border:0; padding:6px; line-height:1; cursor:pointer;
-  color:#159140; opacity:.75;
+  position:absolute; top:0; bottom:0; right:12px;
+  width:40px; display:flex; align-items:center; justify-content:center;
+  background:transparent; border:0; padding:0; cursor:pointer;
+  color:var(--green-d); opacity:.85; line-height:0;
 }
 .toggle-pass:hover{ opacity:1; }
-.toggle-pass svg{ width:22px; height:22px; display:inline-block; }
+.toggle-pass svg{ width:20px; height:20px; display:block; }
 .toggle-pass .eye-off{ display:none; }
 .toggle-pass.showing .eye{ display:none; }
 .toggle-pass.showing .eye-off{ display:inline-block; }
 
-/* Responsive */
-@media (max-width:520px){
-  .login-box{ padding:30px 12px 22px; max-width:98vw; }
-  .login-box h2{ font-size:1.5rem; margin-bottom:22px; }
-  .login-container{ min-height:90vh; padding:0 2px; }
-}
-/* 1) Gawing mas wide ang card at bawasan ang side padding */
-.login-box{
-  max-width: 460px;              /* dati 350px */
-  padding: 32px 24px 28px;       /* mas konting side padding para humaba ang fields */
-}
-
-/* 2) Pahabain at i-center ang fields sa loob ng card */
-.login-box input[type="email"],
-.password-field{                 /* wrapper ng password */
-  width: clamp(320px, 88vw, 440px);
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* 3) Uniform height + mas sakto ang padding sa loob ng inputs */
-.login-box input[type="email"],
-.login-box input[type="password"],
-.login-box input[type="text"]#password{
-  height: 52px;
-  padding: 12px 48px 12px 16px;  /* may space sa kanan para sa eye */
-  border-radius: 10px;
-}
-
-/* 4) Perfect vertical centering ng eye button */
-.password-field{
-  position: relative;
-  margin-bottom: 20px;
-}
-.password-field input{
-  width: 100%;
-}
-.toggle-pass{
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px; height: 20px;
-  display: grid;                 /* centers the svg perfectly */
-  place-items: center;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  color: #159140;
-  opacity: .8;
-}
-.toggle-pass:hover{ opacity: 1; }
-.toggle-pass svg{ width: 20px; height: 20px; }
-.form-row{
-  width:100%;
-  display:flex;
-  justify-content:flex-end;
-  margin: -6px 2px 16px;   /* a little tighter, adjust as you like */
-    margin-top: 20px;
-}
-.link-btn{
-  appearance:none;
-  border:0;
-  background:transparent;
-  color:#159140;
-  font-weight:700;
+/* ===== Submit button ===== */
+.login-box .submit-btn{
+  width:100%; padding:13px 0;
+  background:linear-gradient(90deg,var(--green),var(--green-d) 80%);
+  color:#fff; border:none; border-radius:12px;
+  font-size:18px; font-weight:800; letter-spacing:.5px;
+  transition:filter .2s ease; box-shadow:0 2px 10px rgba(41,128,65,.08);
   cursor:pointer;
-  padding:0;
-  line-height:1.1;
 }
-.link-btn:hover{ text-decoration:underline; }
-.form-row-center{ justify-content:center; }
+.login-box .submit-btn:hover,
+.login-box .submit-btn:focus{ filter:brightness(.95); }
 
+/* ===== Error & footer ===== */
+.login-box .error{ color:#c0392b; text-align:center; margin-bottom:16px; font-size:15px; font-weight:700; }
+.form-row{ width:100%; display:flex; justify-content:flex-end; margin:12px 2px 0; }
+.form-row-center{ justify-content:center; }
+.link-btn,a.link-btn{ appearance:none; border:0; background:transparent; color:var(--green-d); font-weight:800; cursor:pointer; padding:0; line-height:1.1; text-decoration:underline; }
+.link-btn:hover{ text-decoration:underline; }
+
+/* ===== Responsive ===== */
+@media (max-width:520px){
+  .login-box{ padding:28px 12px 24px; max-width:98vw; }
+  .login-box h2{ font-size:1.6rem; margin-bottom:20px; }
+}
 </style>
+
 
 <div class="login-container">
   <div class="login-box">
@@ -163,7 +116,7 @@ body { min-height: 100vh; margin: 0; }
       <div class="error"><?= htmlspecialchars($_GET['error']) ?></div>
     <?php endif; ?>
 
-    <form action="login_action.php" method="post" autocomplete="off">
+    <form id="loginForm" action="login_action.php" method="post" autocomplete="off">
       <input type="email" name="email" placeholder="Email Address" required autofocus>
 
       <div class="password-field">
@@ -272,5 +225,39 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 <?php endif; ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // existing eye-toggle code...
+  const pass = document.getElementById('password');
+  const toggle = document.querySelector('.toggle-pass');
+  if (pass && toggle) {
+    toggle.addEventListener('click', function () {
+      const show = pass.type === 'password';
+      pass.type = show ? 'text' : 'password';
+      this.classList.toggle('showing', show);
+      this.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
+  }
+
+  /* === enforce @cbsua.edu.ph === */
+  const form  = document.getElementById('loginForm');
+  const email = form ? form.querySelector('input[name="email"]') : null;
+
+  if (form && email) {
+    form.addEventListener('submit', function (e) {
+      const v = (email.value || '').trim().toLowerCase();
+      if (!v.endsWith('@cbsua.edu.ph')) {
+        e.preventDefault();
+        Swal.fire({
+          icon: 'warning',
+          title: 'Use your Institutional Email',
+          text: 'Please sign in using your @cbsua.edu.ph address.',
+          confirmButtonColor: '#159140'
+        }).then(() => { email.focus(); email.select(); });
+      }
+    });
+  }
+});
+</script>
 
 <?php include 'includes/footer.php'; ?>

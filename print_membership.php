@@ -12,6 +12,24 @@ $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
 $stmt->close();
+// === Active signatories (GLOBAL: org_id IS NULL) ===
+$recSig = $appSig = [];
+
+$q = $conn->query("
+  SELECT role, name, title
+  FROM signatories
+  WHERE is_active = 1 AND org_id IS NULL AND role IN ('recommending_approval','approved')
+  ORDER BY started_on DESC
+");
+if ($q) {
+  while ($s = $q->fetch_assoc()) {
+    if ($s['role'] === 'recommending_approval') $recSig = $s;
+    if ($s['role'] === 'approved')               $appSig = $s;
+  }
+}
+
+// School ID (support both 'school_id' or older 'student_id' column names)
+$schoolId = $row['school_id'] ?? $row['student_id'] ?? '';
 
 $preferred = explode(', ', $row['preferred_org']);
 
@@ -438,6 +456,7 @@ body {
         </div>
 
         <div class="info-row"><label>Year Level:</label><span><?= htmlspecialchars($row['year_level']) ?></span></div>
+        <div class="info-row"><label>School ID:</label><span><?= htmlspecialchars($schoolId) ?></span></div>
         <div class="info-row"><label>Age:</label><span><?= htmlspecialchars($row['age']) ?></span></div>
         <div class="info-row"><label>Email Address:</label><span><?= htmlspecialchars($row['email']) ?></span></div>
         <div class="info-row"><label>Occupation (Mother):</label><span><?= htmlspecialchars($row['mother_occupation']) ?></span></div>
@@ -474,23 +493,24 @@ body {
 
     <!-- Recommending and Approval Section -->
    <div class="approval-section">
-    <!-- Recommending Approval -->
-    <div class="approval-box">
-        <div style="margin-bottom:30px;"><strong>Recommending Approval:</strong></div>
-        <br>
-        <div><strong><u>BABY ELOISA L. PEÑANO</u></strong></div>
-        <div>Coordinator, ACA</div>
-        <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
-    </div>
+ <!-- Recommending Approval -->
+<div class="approval-box">
+  <div style="margin-bottom:30px;"><strong>Recommending Approval:</strong></div>
+  <br>
+  <div><strong><u><?= htmlspecialchars(strtoupper($recSig['name'] ?? '')) ?></u></strong></div>
+  <div><?= htmlspecialchars($recSig['title'] ?? '') ?></div>
+  <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
+</div>
 
-    <!-- Approved -->
-    <div class="approval-box">
-        <div style="margin-bottom:30px;"><strong>Approved:</strong></div>
-        <br>
-        <div><strong><u>MERCY M. ALMONTE</u></strong></div>
-        <div>Unit Head, SWKS</div>
-        <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
-    </div>
+<!-- Approved -->
+<div class="approval-box">
+  <div style="margin-bottom:30px;"><strong>Approved:</strong></div>
+  <br>
+  <div><strong><u><?= htmlspecialchars(strtoupper($appSig['name'] ?? '')) ?></u></strong></div>
+  <div><?= htmlspecialchars($appSig['title'] ?? '') ?></div>
+  <div>Date: <span style="border-bottom: 1px solid #000; width: 120px; display: inline-block;"></span></div>
+</div>
+
 </div>
     <!-- Footer -->
     <div class="footer-note">

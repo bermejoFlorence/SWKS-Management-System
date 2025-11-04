@@ -28,6 +28,8 @@ while ($row = $result->fetch_assoc()) {
 }
 
 $today = date('Y-m-d'); 
+$AGE_MIN = 18;
+$maxBirthdate = date('Y-m-d', strtotime("-{$AGE_MIN} years")); // latest date allowed
 ?>
 <style>
     .membership-form label {
@@ -113,90 +115,110 @@ $today = date('Y-m-d');
             </div>
             
             <div class="form-card" data-title="Personal Information">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label>Full Name:</label>
-                        <input type="text" name="full_name" class="form-control letters-only" required
-                               value="<?= $editMode ? htmlspecialchars($memberData['full_name']) : '' ?>">
-                    </div>
-                    <div class="col-md-2">
-                        <label>Nickname:</label>
-                        <input type="text" name="nickname" class="form-control letters-only"
-                               value="<?= $editMode ? htmlspecialchars($memberData['nickname']) : '' ?>">
-                    </div>
-                    <div class="col-md-3">
-                        <label>AY:</label>
-                        <input type="text" name="ay" class="form-control"
-                               value="<?= $editMode ? htmlspecialchars($memberData['ay']) : '' ?>">
-                    </div>
-                    <div class="col-md-3">
-                        <label>Gender:</label>
-                        <div class="d-flex justify-content-center">
-                            <div class="form-check me-3">
-                                <input class="form-check-input" type="radio" name="gender" value="Female" required
-                                    <?= ($editMode && $memberData['gender'] == 'Female') ? 'checked' : '' ?>>
-                                <label class="form-check-label">Female</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="gender" value="Male"
-                                    <?= ($editMode && $memberData['gender'] == 'Male') ? 'checked' : '' ?>>
-                                <label class="form-check-label">Male</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label>Course:</label>
-                        <select name="course" class="form-select" required>
-                            <option value="">-- Select Course --</option>
-                            <?php
-                            $courses = [
-                                "Bachelor of Elementary Education",
-                                "Bachelor of Science in Information Technology",
-                                "Bachelor of Secondary Major in Mathematics",
-                                "Bachelor of Secondary Major in English",
-                                "Bachelor of Secondary Major in Filipino",
-                                "Bachelor of Secondary Major in Technical and Livelihood Education",
-                                "Bachelor of Secondary Major in Science",
-                                "Bachelor of Industrial Technology"
-                            ];
-                            foreach ($courses as $course) {
-                                $selected = ($editMode && $memberData['course'] == $course) ? 'selected' : '';
-                                echo "<option $selected>$course</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label>Year Level:</label>
-                        <select name="year_level" class="form-select" style="min-width: 160px;" required>
-                            <option value="">Year Level</option>
-                            <?php
-                            $levels = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-                            foreach ($levels as $lvl) {
-                                $selected = ($editMode && $memberData['year_level'] == $lvl) ? 'selected' : '';
-                                echo "<option $selected>$lvl</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label>Birthdate:</label>
-                        <input type="date" name="birthdate" id="birthdate" class="form-control" required
-                            max="<?= $today ?>"
-                            value="<?= $editMode ? htmlspecialchars($memberData['birthdate']) : '' ?>">
-                    </div>
-                    <div class="col-md-3">
-                        <label>Age:</label>
-                        <input type="number" name="age" id="age" class="form-control" readonly
-                               value="<?= $editMode ? htmlspecialchars($memberData['age']) : '' ?>">
-                    </div>
-                    <div class="col-12">
-                        <label>Address:</label>
-                        <input type="text" name="address" class="form-control"
-                               value="<?= $editMode ? htmlspecialchars($memberData['address']) : '' ?>">
-                    </div>
-                </div>
-            </div>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label>Full Name:</label>
+      <input type="text" name="full_name" class="form-control letters-only" required
+             value="<?= $editMode ? htmlspecialchars($memberData['full_name']) : '' ?>">
+    </div>
+
+    <div class="col-md-2">
+      <label>Nickname:</label>
+      <input type="text" name="nickname" class="form-control letters-only"
+             value="<?= $editMode ? htmlspecialchars($memberData['nickname']) : '' ?>">
+    </div>
+
+    <div class="col-md-3">
+      <label>AY:</label>
+      <input type="text" name="ay" class="form-control"
+             value="<?= $editMode ? htmlspecialchars($memberData['ay']) : '' ?>">
+    </div>
+
+    <div class="col-md-3">
+      <label>Gender:</label>
+      <div class="d-flex justify-content-center">
+        <div class="form-check me-3">
+          <input class="form-check-input" type="radio" name="gender" value="Female" required
+                 <?= ($editMode && $memberData['gender'] == 'Female') ? 'checked' : '' ?>>
+          <label class="form-check-label">Female</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="gender" value="Male"
+                 <?= ($editMode && $memberData['gender'] == 'Male') ? 'checked' : '' ?>>
+          <label class="form-check-label">Male</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row: Course, Year Level, Student ID, Birthdate, Age -->
+    <div class="col-md-4">
+      <label>Course:</label>
+      <select name="course" class="form-select" required>
+        <option value="">-- Select Course --</option>
+        <?php
+        $courses = [
+          "Bachelor of Elementary Education",
+          "Bachelor of Science in Information Technology",
+          "Bachelor of Secondary Major in Mathematics",
+          "Bachelor of Secondary Major in English",
+          "Bachelor of Secondary Major in Filipino",
+          "Bachelor of Secondary Major in Technical and Livelihood Education",
+          "Bachelor of Secondary Major in Science",
+          "Bachelor of Industrial Technology"
+        ];
+        foreach ($courses as $course) {
+          $selected = ($editMode && $memberData['course'] == $course) ? 'selected' : '';
+          echo "<option $selected>$course</option>";
+        }
+        ?>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label>Year Level:</label>
+      <select name="year_level" class="form-select" style="min-width:160px;" required>
+        <option value="">Year Level</option>
+        <?php
+        $levels = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+        foreach ($levels as $lvl) {
+          $selected = ($editMode && $memberData['year_level'] == $lvl) ? 'selected' : '';
+          echo "<option $selected>$lvl</option>";
+        }
+        ?>
+      </select>
+    </div>
+
+    <!-- ✅ NEW: Student ID (numbers-only), placed between Year Level and Birthdate -->
+    <div class="col-md-2">
+      <label>Student ID:</label>
+      <input type="text" name="student_id" class="form-control numbers-only"
+             placeholder=""
+             value="<?= $editMode ? htmlspecialchars($memberData['student_id'] ?? '') : '' ?>">
+    </div>
+
+    <div class="col-md-3">
+      <label>Birthdate:</label>
+     <input type="date" name="birthdate" id="birthdate" class="form-control" required
+       max="<?= $maxBirthdate ?>"
+       value="<?= $editMode ? htmlspecialchars($memberData['birthdate']) : '' ?>">
+
+    </div>
+
+    <!-- Age made narrower so everything fits in one row -->
+    <div class="col-md-1">
+      <label>Age:</label>
+      <input type="number" name="age" id="age" class="form-control" readonly
+             value="<?= $editMode ? htmlspecialchars($memberData['age']) : '' ?>">
+    </div>
+
+    <div class="col-12">
+      <label>Address:</label>
+      <input type="text" name="address" class="form-control"
+             value="<?= $editMode ? htmlspecialchars($memberData['address']) : '' ?>">
+    </div>
+  </div>
+</div>
+
 
             <div class="form-card" data-title="Contact, Parent & Guardian Info">
                 <div class="row g-3">
@@ -317,19 +339,51 @@ $today = date('Y-m-d');
         });
     });
 
-    document.getElementsByName('birthdate')[0].addEventListener('change', function () {
-        const birthDate = new Date(this.value);
-        const today = new Date();
+document.addEventListener('DOMContentLoaded', function () {
+  const form       = document.querySelector('form[action="submit_member.php"]') || document.querySelector('form');
+  const birthInput = document.getElementById('birthdate');
+  const ageInput   = document.getElementById('age');
+  const AGE_MIN    = 18;
 
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
+  function computeAge(dateStr){
+    const b = new Date(dateStr);
+    if (Number.isNaN(b.getTime())) return '';
+    const t = new Date();
+    let age = t.getFullYear() - b.getFullYear();
+    const m = t.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
+    return age;
+  }
 
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
+  // Ensure the max attribute is set to 18+ even if PHP didn't render it for some reason.
+  (function enforceMaxBirthdate(){
+    if (!birthInput) return;
+    const max = new Date();
+    max.setFullYear(max.getFullYear() - AGE_MIN);
+    birthInput.setAttribute('max', max.toISOString().slice(0,10));
+  })();
 
-        document.getElementsByName('age')[0].value = age;
-    });
+  // live age compute
+  birthInput?.addEventListener('change', function(){
+    const age = computeAge(this.value);
+    ageInput.value = (age !== '' ? age : '');
+  });
+
+  // block submit if underage
+  form?.addEventListener('submit', function(e){
+    const age = computeAge(birthInput?.value || '');
+    if (!age || age < AGE_MIN) {
+      e.preventDefault();
+      Swal.fire({
+        icon: 'warning',
+        title: 'Age requirement',
+        text: `You must be at least ${AGE_MIN} years old to submit.`,
+        confirmButtonColor: '#064d00'
+      });
+      birthInput?.focus();
+    }
+  });
+});
 
     document.addEventListener('DOMContentLoaded', function () {
     const emailInput = document.getElementById('emailField');
