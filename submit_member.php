@@ -117,42 +117,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // -------- Insert or Update --------
     if (isset($_POST['member_id']) && $_POST['member_id'] !== '') {
         // ==================== UPDATE ====================
-        $member_id = (int)$_POST['member_id'];
+        // ==================== UPDATE ====================
+$member_id = (int)$_POST['member_id'];
 
-        // Keep old picture if no new upload
-        if (!$hasNewPicture) {
-            $stmt_pic = $conn->prepare("SELECT profile_picture FROM member_details WHERE member_id = ?");
-            $stmt_pic->bind_param("i", $member_id);
-            $stmt_pic->execute();
-            $res_pic = $stmt_pic->get_result();
-            if ($row_pic = $res_pic->fetch_assoc()) {
-                $profile_picture = $row_pic['profile_picture'];
-            }
-            $stmt_pic->close();
-        }
+// Keep old picture if no new upload
+if (!$hasNewPicture) {
+    $stmt_pic = $conn->prepare("SELECT profile_picture FROM member_details WHERE member_id = ?");
+    $stmt_pic->bind_param("i", $member_id);
+    $stmt_pic->execute();
+    $res_pic = $stmt_pic->get_result();
+    if ($row_pic = $res_pic->fetch_assoc()) {
+        $profile_picture = $row_pic['profile_picture'];
+    }
+    $stmt_pic->close();
+}
 
-        $stmt = $conn->prepare("UPDATE member_details SET
-            full_name=?, nickname=?, ay=?, gender=?, course=?, year_level=?, student_id=?, birthdate=?, age=?, address=?,
-            contact_number=?, email=?, mother_name=?, mother_occupation=?, father_name=?, father_occupation=?,
-            guardian=?, guardian_address=?, profile_picture=?, preferred_org=?, date_submitted=?
-            WHERE member_id=?");
+$stmt = $conn->prepare("UPDATE member_details SET
+    full_name=?, nickname=?, ay=?, gender=?, course=?, year_level=?, student_id=?, birthdate=?, age=?, address=?,
+    contact_number=?, email=?, mother_name=?, mother_occupation=?, father_name=?, father_occupation=?,
+    guardian=?, guardian_address=?, profile_picture=?, preferred_org=?, date_submitted=?
+    WHERE member_id=?");
 
-        // Keep types simple: treat most as strings; last param is member_id (int)
-        $stmt->bind_param(
-            "ssssssssssssssssssssssi",
-            $full_name, $nickname, $ay, $gender, $course, $year_level, $student_id, $birthdate, $age, $address,
-            $contact_number, $email, $mother_name, $mother_occupation, $father_name, $father_occupation,
-            $guardian, $guardian_address, $profile_picture, $preferred_org, $date_submitted,
-            $member_id
-        );
+// types: s s s s s s s s i s s s s s s s s s s i s i  (22 chars total)
+$stmt->bind_param(
+    "ssssssssissssssssssisi",
+    $full_name, $nickname, $ay, $gender, $course, $year_level, $student_id, $birthdate, $age, $address,
+    $contact_number, $email, $mother_name, $mother_occupation, $father_name, $father_occupation,
+    $guardian, $guardian_address, $profile_picture, $preferred_org, $date_submitted,
+    $member_id
+);
 
-        if ($stmt->execute()) {
-            header("Location: membership.php?success=print&id=$member_id");
-            exit;
-        } else {
-            echo "Error updating record: " . $stmt->error;
-        }
-        $stmt->close();
+if ($stmt->execute()) {
+    header("Location: membership.php?success=print&id=$member_id");
+    exit;
+} else {
+    echo "Error updating record: " . $stmt->error;
+}
+$stmt->close();
+
 
     } else {
         // ==================== INSERT ====================
