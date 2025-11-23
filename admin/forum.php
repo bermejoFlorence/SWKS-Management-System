@@ -304,7 +304,7 @@ while ($row = $result->fetch_assoc()) {
                             </div>
                             <form method="post" action="forum_comment_action.php" class="commentForm d-flex align-items-center gap-2">
                                 <input type="hidden" name="post_id" value="<?= $post_id ?>">
-                                <textarea name="comment_text" class="form-control" rows="1" placeholder="Write a comment..." required></textarea>
+                                <textarea name="comment_text" class="form-control" rows="1" placeholder="Write a comment..."   style="height:36px;min-height:36px;max-height:100px;overflow:auto;line-height:1.2;padding:.35rem .55rem;" required></textarea>
                                 <button type="submit" class="btn btn-sm btn-success">Comment</button>
                             </form>
                         </div>
