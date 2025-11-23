@@ -92,6 +92,13 @@ while ($row = $result->fetch_assoc()) {
         .post-image-thumb:hover {
             transform: scale(1.06); z-index:2; box-shadow:0 2px 16px rgba(0,0,0,.15);
         }
+
+  .commentForm{ margin-left:72px; max-width:900px; }
+  .commentForm textarea.form-control{ flex:0 0 65%; max-width:650px; min-width:320px; }
+  @media (max-width:576px){
+    .commentForm{ margin-left:0; max-width:none; }
+    .commentForm textarea.form-control{ flex:1 1 auto; max-width:none; }
+  }
     </style>
 </head>
 <body>
@@ -302,11 +309,18 @@ while ($row = $result->fetch_assoc()) {
                             <div class="mb-2" id="commentsList-<?= $post_id ?>">
                                 <div class="text-muted">Loading comments...</div>
                             </div>
-                            <form method="post" action="forum_comment_action.php" class="commentForm d-flex align-items-center gap-2">
-                                <input type="hidden" name="post_id" value="<?= $post_id ?>">
-                                <textarea name="comment_text" class="form-control" rows="1" placeholder="Write a comment..."   style="height:36px;min-height:36px;max-height:100px;overflow:auto;line-height:1.2;padding:.35rem .55rem;" required></textarea>
-                                <button type="submit" class="btn btn-sm btn-success">Comment</button>
-                            </form>
+                            <form method="post" action="forum_comment_action.php" 
+      class="commentForm d-flex align-items-center gap-2 ms-4"
+      style="margin-left:72px; max-width:900px;">
+  <input type="hidden" name="post_id" value="<?= $post_id ?>">
+  <textarea name="comment_text"
+            class="form-control flex-grow-0"
+            rows="1"
+            placeholder="Write a comment..."
+            required
+            style="flex:0 0 65%; max-width:650px; min-width:320px;"></textarea>
+  <button type="submit" class="btn btn-sm btn-success">Comment</button>
+</form>
                         </div>
                     </div>
                 </div>
