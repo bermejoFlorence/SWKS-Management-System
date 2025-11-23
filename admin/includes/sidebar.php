@@ -28,7 +28,20 @@ if ($sideDirDisk && $docRoot && strpos($sideDirDisk, $docRoot) === 0) {
    <div class="logo">
   <a href="index.php" class="swks-logo-link" aria-label="SWKS Home">
     <?php if ($logoExists): ?>
-      <img src="<?= htmlspecialchars($logoUrl . $logoQ) ?>" alt="SWKS" class="swks-logo" style="max-height: 100px; max-width: 150px; height: auto; width: auto; display: block;">
+      <img
+  src="<?= htmlspecialchars($logoUrl . $logoQ) ?>"
+  alt="SWKS"
+  style="
+    display:block;
+    width: 180px;       /* laki ng logo (pwede 200px kung kasya) */
+    max-width: 80%;     /* iwas sumagad sa lapad ng sidebar */
+    height: auto;       /* keep aspect ratio */
+    max-height: 140px;  /* kontrol sa taas; pwede taasan kung kailangan */
+    object-fit: contain;
+    margin: 0 auto;     /* center sa sidebar */
+  "
+>
+
     <?php else: ?>
       <span class="swks-logo-text">SWKS</span>
     <?php endif; ?>
