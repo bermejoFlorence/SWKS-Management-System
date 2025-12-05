@@ -22,7 +22,7 @@ if (!$org) {
 }
 $adviser = $org['adviser_fname'] ? $org['adviser_fname'] : 'Unassigned';
 
-// Get member list
+// Get member list ------------- IMPORTANT: may student_id na -------------
 $sql_members = "SELECT 
                   m.full_name,
                   m.ay,
@@ -33,7 +33,6 @@ $sql_members = "SELECT
                 JOIN user u ON m.user_id = u.user_id
                 WHERE u.org_id = ? AND u.user_role = 'member'
                 ORDER BY m.full_name ASC";
-
 $stmt2 = $conn->prepare($sql_members);
 $stmt2->bind_param("i", $org_id);
 $stmt2->execute();
@@ -124,10 +123,6 @@ $members_result = $stmt2->get_result();
         text-align: center;
         padding: 12px 8px;
     }
-    .swks-header-row {
-      flex-direction: column !important;
-      align-items: stretch !important;
-    }
 }
 .button-stack {
   display: flex;
@@ -171,14 +166,25 @@ $members_result = $stmt2->get_result();
         </a>
       </div>
     </div>
+
     <div class="card border-0 shadow-lg rounded-4">
       <div class="card-body p-0">
+
+        <!-- 🔎 Search bar (by Student ID) -->
+        <div class="table-tools d-flex justify-content-end align-items-center gap-2 p-3 pb-2">
+          <div class="input-group" style="max-width: 320px;">
+            <span class="input-group-text bg-white border-2"><i class="bi bi-search"></i></span>
+            <input type="text" id="studentSearch" class="form-control border-2"
+                   placeholder="Search by student ID...">
+          </div>
+        </div>
+
         <div class="table-responsive">
           <table class="table align-middle table-hover mb-0">
             <thead class="table-success rounded-4">
               <tr>
                 <th style="width:4%">#</th>
-                <th style="width:8%">Student ID</th>
+                <th style="width:18%">Student ID Number</th>
                 <th>Name of Student</th>
                 <th>Year</th>
                 <th>Course</th>
@@ -189,9 +195,12 @@ $members_result = $stmt2->get_result();
               <?php
               $count = 1;
               while ($member = $members_result->fetch_assoc()) {
-                  echo "<tr>";
+                  $studId   = (string)($member['student_id'] ?? '');
+                  $studIdDs = strtolower(str_replace(' ', '', $studId)); // for data attribute
+
+                  echo "<tr class='member-row' data-studid='" . htmlspecialchars($studIdDs, ENT_QUOTES) . "'>";
                   echo "<td class='fw-bold'>{$count}</td>";
-                    echo "<td class='fw-semibold'>" . htmlspecialchars($member['student_id'] ?? '') . "</td>";
+                  echo "<td class='fw-semibold'>" . htmlspecialchars($studId) . "</td>";
                   echo "<td class='fw-semibold'>" . htmlspecialchars($member['full_name']) . "</td>";
                   echo "<td>" . htmlspecialchars($member['ay']) . "</td>";
                   echo "<td>" . htmlspecialchars($member['course'] ?? '') . "</td>";
@@ -199,8 +208,15 @@ $members_result = $stmt2->get_result();
                   echo "</tr>";
                   $count++;
               }
+
               if ($count === 1) {
-                  echo "<tr><td colspan='5' class='text-center text-muted py-4'>No members found.</td></tr>";
+                  // no members at all
+                  echo "<tr><td colspan='6' class='text-center text-muted py-4'>No members found.</td></tr>";
+              } else {
+                  // row for "no matches" kapag nagsa-search
+                  echo "<tr id='memberNoResults' class='d-none'>
+                          <td colspan='6' class='text-center text-muted py-4'>No matching members.</td>
+                        </tr>";
               }
               ?>
             </tbody>
@@ -209,47 +225,48 @@ $members_result = $stmt2->get_result();
       </div>
     </div>
   </div>
-  <!-- Edit Organization Modal -->
-<div class="modal fade" id="editOrgModal" tabindex="-1" aria-labelledby="editOrgModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-4 shadow-sm">
-      <div class="modal-header border-0">
-        <h5 class="modal-title fw-bold text-success" id="editOrgModalLabel">Edit Organization</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+  <!-- Edit Organization Modal (unchanged) -->
+  <div class="modal fade" id="editOrgModal" tabindex="-1" aria-labelledby="editOrgModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 shadow-sm">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold text-success" id="editOrgModalLabel">Edit Organization</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form action="update_organization.php" method="POST">
+          <input type="hidden" name="org_id" value="<?= $org['org_id'] ?>">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="adviserName" class="form-label fw-semibold">Adviser Name</label>
+              <input type="text" class="form-control" name="adviser_name" id="adviserName" value="<?= htmlspecialchars($org['adviser_fname']) ?>">
+            </div>
+            <div class="mb-3">
+              <label for="adviserEmail" class="form-label fw-semibold">Adviser Email</label>
+             <input type="email" class="form-control" name="adviser_email" id="adviserEmail" 
+                value="<?= htmlspecialchars($org['adviser_email']) ?>" 
+                pattern="^[a-zA-Z0-9._%+-]+@cbsua\.edu\.ph$"
+                title="Please use a valid @cbsua.edu.ph email" required>
+            </div>
+            <div class="mb-3">
+              <label for="editOrgName" class="form-label fw-semibold">Organization Name</label>
+              <input type="text" class="form-control" id="editOrgName" name="org_name" value="<?= htmlspecialchars($org['org_name']) ?>" required>
+            </div>
+            <div class="mb-3">
+              <label for="editOrgDesc" class="form-label fw-semibold">Description</label>
+              <textarea class="form-control" id="editOrgDesc" name="org_desc" rows="3" required><?= htmlspecialchars($org['org_desc']) ?></textarea>
+            </div>
+          </div>
+          <div class="modal-footer border-0">
+            <button type="submit" class="btn btn-success fw-semibold px-4">Save</button>
+            <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
       </div>
-      <form action="update_organization.php" method="POST">
-        <input type="hidden" name="org_id" value="<?= $org['org_id'] ?>">
-        <div class="modal-body">
-          <div class="mb-3">
-            <label for="adviserName" class="form-label fw-semibold">Adviser Name</label>
-            <input type="text" class="form-control" name="adviser_name" id="adviserName" value="<?= htmlspecialchars($org['adviser_fname']) ?>">
-          </div>
-          <div class="mb-3">
-            <label for="adviserEmail" class="form-label fw-semibold">Adviser Email</label>
-           <input type="email" class="form-control" name="adviser_email" id="adviserEmail" 
-              value="<?= htmlspecialchars($org['adviser_email']) ?>" 
-              pattern="^[a-zA-Z0-9._%+-]+@cbsua\.edu\.ph$"
-              title="Please use a valid @cbsua.edu.ph email" required>
-          </div>
-          <div class="mb-3">
-            <label for="editOrgName" class="form-label fw-semibold">Organization Name</label>
-            <input type="text" class="form-control" id="editOrgName" name="org_name" value="<?= htmlspecialchars($org['org_name']) ?>" required>
-          </div>
-          <div class="mb-3">
-            <label for="editOrgDesc" class="form-label fw-semibold">Description</label>
-            <textarea class="form-control" id="editOrgDesc" name="org_desc" rows="3" required><?= htmlspecialchars($org['org_desc']) ?></textarea>
-          </div>
-        </div>
-        <div class="modal-footer border-0">
-          <button type="submit" class="btn btn-success fw-semibold px-4">Save</button>
-          <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
-        </div>
-      </form>
     </div>
   </div>
-</div>
 
-  <!-- Confirmation Modal -->
+  <!-- Confirmation Modal (unchanged) -->
   <div class="modal fade" id="confirmSaveModal" tabindex="-1" aria-labelledby="confirmSaveLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content rounded-4">
@@ -298,7 +315,8 @@ document.addEventListener('DOMContentLoaded', function () {
       confirmButtonColor: '#d33'
     }).then(() => {
       urlParams.delete('invalid_email');
-      const newUrl = window.location.pathname + '?' + urlParams.toString();
+      const query = urlParams.toString();
+      const newUrl = window.location.pathname + (query ? '?' + query : '');
       window.history.replaceState({}, '', newUrl);
     });
   }
@@ -312,7 +330,8 @@ document.addEventListener('DOMContentLoaded', function () {
       confirmButtonColor: '#d33'
     }).then(() => {
       urlParams.delete('duplicate_email');
-      const newUrl = window.location.pathname + '?' + urlParams.toString();
+      const query = urlParams.toString();
+      const newUrl = window.location.pathname + (query ? '?' + query : '');
       window.history.replaceState({}, '', newUrl);
     });
   }
@@ -337,27 +356,62 @@ document.getElementById('confirmSubmitBtn').addEventListener('click', () => {
   }
 });
 </script>
-    <script>
-        // Sidebar toggle for mobile
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('show');
-        }
 
-        // Sidebar auto-close on outside click (mobile)
-        document.addEventListener('click', function(event) {
-            const sidebar = document.getElementById('sidebar');
-            const hamburger = document.querySelector('.hamburger-btn');
-            if(window.innerWidth <= 992 && sidebar.classList.contains('show')) {
-                if (!sidebar.contains(event.target) && event.target !== hamburger) {
-                    sidebar.classList.remove('show');
-                }
+<script>
+    // Sidebar toggle for mobile
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.toggle('show');
+    }
+
+    // Sidebar auto-close on outside click (mobile)
+    document.addEventListener('click', function(event) {
+        const sidebar = document.getElementById('sidebar');
+        const hamburger = document.querySelector('.hamburger-btn');
+        if(window.innerWidth <= 992 && sidebar?.classList.contains('show')) {
+            if (!sidebar.contains(event.target) && event.target !== hamburger) {
+                sidebar.classList.remove('show');
             }
-        });
-        // Prevent closing on hamburger click
-        document.querySelector('.hamburger-btn').addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
-    </script>
+        }
+    });
+    // Prevent closing on hamburger click
+    document.querySelector('.hamburger-btn')?.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+</script>
+
+<!-- 🔎 JS filter by student ID -->
+<script>
+(function(){
+  const input = document.getElementById('studentSearch');
+  const getRows = () => Array.from(document.querySelectorAll('tr.member-row'));
+  const noRow  = document.getElementById('memberNoResults');
+
+  const norm = s => (s || '')
+      .toString()
+      .toLowerCase()
+      .replace(/\s+/g, '')    // tanggal spaces
+      .trim();
+
+  function applyFilter() {
+    const q = norm(input.value);
+    let shown = 0;
+
+    getRows().forEach(tr => {
+      const sid = norm(tr.dataset.studid || '');
+      const hit = !q || sid.includes(q);
+      tr.style.display = hit ? '' : 'none';
+      if (hit) shown++;
+    });
+
+    if (noRow) {
+      noRow.classList.toggle('d-none', shown !== 0);
+    }
+  }
+
+  input?.addEventListener('input', applyFilter);
+})();
+</script>
+
 </body>
 </html>
