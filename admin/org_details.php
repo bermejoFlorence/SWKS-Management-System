@@ -178,7 +178,7 @@ $members_result = $stmt2->get_result();
             <thead class="table-success rounded-4">
               <tr>
                 <th style="width:4%">#</th>
-                <th style="width:6%">Student ID Number</th>
+                <th style="width:8%">Student ID</th>
                 <th>Name of Student</th>
                 <th>Year</th>
                 <th>Course</th>
