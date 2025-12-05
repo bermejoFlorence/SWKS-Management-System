@@ -252,6 +252,17 @@ while ($row = $result->fetch_assoc()) {
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+  // Sidebar toggle (unchanged)
+  function toggleSidebar(){document.getElementById('sidebar')?.classList.toggle('show')}
+  document.addEventListener('click',function(e){
+    const s=document.getElementById('sidebar'),h=document.querySelector('.hamburger-btn');
+    if(window.innerWidth<=992 && s?.classList.contains('show')){
+      if(!s.contains(e.target) && e.target!==h) s.classList.remove('show');
+    }
+  });
+  document.querySelector('.hamburger-btn')?.addEventListener('click',e=>e.stopPropagation());
+  </script>
 <script>
 // open/close comments + polling per post
 $(document).on('click', '.comment-toggle', function() {
