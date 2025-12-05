@@ -23,11 +23,17 @@ if (!$org) {
 $adviser = $org['adviser_fname'] ? $org['adviser_fname'] : 'Unassigned';
 
 // Get member list
-$sql_members = "SELECT m.full_name, m.ay, m.course, u.created_at
+$sql_members = "SELECT 
+                  m.full_name,
+                  m.ay,
+                  m.course,
+                  m.student_id,
+                  u.created_at
                 FROM member_details m
                 JOIN user u ON m.user_id = u.user_id
                 WHERE u.org_id = ? AND u.user_role = 'member'
                 ORDER BY m.full_name ASC";
+
 $stmt2 = $conn->prepare($sql_members);
 $stmt2->bind_param("i", $org_id);
 $stmt2->execute();
@@ -172,6 +178,7 @@ $members_result = $stmt2->get_result();
             <thead class="table-success rounded-4">
               <tr>
                 <th style="width:4%">#</th>
+                <th style="width:18%">Student ID Number</th>
                 <th>Name of Student</th>
                 <th>Year</th>
                 <th>Course</th>
@@ -184,6 +191,7 @@ $members_result = $stmt2->get_result();
               while ($member = $members_result->fetch_assoc()) {
                   echo "<tr>";
                   echo "<td class='fw-bold'>{$count}</td>";
+                    echo "<td class='fw-semibold'>" . htmlspecialchars($member['student_id'] ?? '') . "</td>";
                   echo "<td class='fw-semibold'>" . htmlspecialchars($member['full_name']) . "</td>";
                   echo "<td>" . htmlspecialchars($member['ay']) . "</td>";
                   echo "<td>" . htmlspecialchars($member['course'] ?? '') . "</td>";
