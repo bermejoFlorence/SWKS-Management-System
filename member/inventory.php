@@ -10,25 +10,6 @@ if (!$itemsQ) {
     die("DB error loading items: " . $conn->error);
 }
 
-/**
- * Resolve a DB-stored relative path like "uploads/tools/rake.jpg" to a working web path "/swks/uploads/tools/rake.jpg".
- * Returns null if file not found.
- */
-function resolve_web_image($rawPath) {
-    $p = str_replace('\\', '/', trim($rawPath ?? '', " \t\n\r\0\x0B/"));
-    if ($p === '') return null;
-
-    $web = "/swks/{$p}";
-    $abs = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $web;
-    if (file_exists($abs)) return $web;
-
-    if (str_starts_with($p, 'swks/')) {
-        $web2 = '/' . $p;
-        $abs2 = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . $web2;
-        if (file_exists($abs2)) return $web2;
-    }
-    return null;
-}
 
 // ---- Load current member borrow requests (items per row) ----
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -173,21 +154,22 @@ function badge_for_status($status) {
         </div>
 
         <div class="row g-4">
-          <?php while ($item = $itemsQ->fetch_assoc()): ?>
-            <?php
-              $imgWeb = resolve_web_image($item['image'] ?? '');
-              $nameEsc = htmlspecialchars($item['name'] ?? '', ENT_QUOTES, 'UTF-8');
-              $descEsc = htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8');
-              $avail   = (int)($item['quantity_available'] ?? 0);
-              $itemId  = (int)($item['item_id'] ?? 0);
-            ?>
-            <div class="col-sm-6 col-md-4 col-lg-3">
-              <div class="card inventory-card shadow-sm border-0">
-                <?php if ($imgWeb): ?>
-                  <img src="<?= $imgWeb ?>" alt="<?= $nameEsc ?>">
-                <?php else: ?>
-                  <img src="/swks/assets/no-image.png" alt="No image">
-                <?php endif; ?>
+         <?php while ($item = $itemsQ->fetch_assoc()): ?>
+  <?php
+    $nameEsc = htmlspecialchars($item['name'] ?? '', ENT_QUOTES, 'UTF-8');
+    $descEsc = htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8');
+    $avail   = (int)($item['quantity_available'] ?? 0);
+    $itemId  = (int)($item['item_id'] ?? 0);
+
+    $imgPath = trim((string)($item['image'] ?? ''));
+  ?>
+  <div class="col-sm-6 col-md-4 col-lg-3">
+    <div class="card inventory-card shadow-sm border-0">
+      <?php if ($imgPath !== ''): ?>
+        <img src="/swks/<?= htmlspecialchars($imgPath, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $nameEsc ?>">
+      <?php else: ?>
+        <img src="/swks/assets/no-image.png" alt="No image">
+      <?php endif; ?>
                 <div class="card-body">
                   <div class="inventory-title"><?= $nameEsc ?></div>
                   <p class="mb-1 text-muted"><?= $descEsc ?></p>
@@ -245,7 +227,10 @@ function badge_for_status($status) {
                 <?php
                 $i = 1;
                 foreach ($requests as $r):
-                    $thumb = resolve_web_image($r['item_image'] ?? '') ?: '/swks/assets/no-image.png';
+                   $rawImg = trim((string)($r['item_image'] ?? ''));
+$thumb  = $rawImg !== ''
+    ? '/swks/' . htmlspecialchars($rawImg, ENT_QUOTES, 'UTF-8')
+    : '/swks/assets/no-image.png';
                     $name  = htmlspecialchars($r['item_name'] ?? '', ENT_QUOTES, 'UTF-8');
                     $purpose = trim((string)($r['purpose'] ?? ''));
                     $purposeShort = htmlspecialchars(mb_strimwidth($purpose, 0, 60, '…', 'UTF-8'), ENT_QUOTES, 'UTF-8');
