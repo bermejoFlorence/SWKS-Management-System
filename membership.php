@@ -295,21 +295,45 @@ $maxBirthdate = date('Y-m-d', strtotime("-{$AGE_MIN} years")); // latest date al
 
 <!-- SweetAlert2 CDN -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<?php if (isset($_GET['success']) && $_GET['success'] == 'print' && isset($_GET['id'])): ?>
-<script>
-    // If this is a forward/after submit
-    Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'Your membership form has been submitted successfully.',
-        confirmButtonColor: '#064d00'
-    }).then(function(){
-        window.location.href = "print_membership.php?id=<?= $_GET['id']; ?>";
-    });
-</script>
-<?php else: ?>
 
+<?php
+// SUCCESS
+if (isset($_GET['success'])):
+  $successText = ($_GET['success'] === 'print')
+      ? 'Your membership form has been submitted successfully.'
+      : 'Operation completed successfully.';
+?>
+<script>
+Swal.fire({
+  icon: 'success',
+  title: 'Success!',
+  text: <?= json_encode($successText) ?>,
+  confirmButtonColor: '#064d00'
+}).then(function () {
+  <?php if ($_GET['success'] === 'print' && isset($_GET['id'])): ?>
+    window.location.href = "print_membership.php?id=<?= (int)$_GET['id']; ?>";
+  <?php endif; ?>
+});
+</script>
 <?php endif; ?>
+
+<?php
+// ERROR
+if (isset($_GET['error'])):
+  $errorText = ($_GET['error'] === "student_id_exists")
+      ? "This student ID is already registered in the system."
+      : "Something went wrong while submitting your form.";
+?>
+<script>
+Swal.fire({
+  icon: 'error',
+  title: 'Submission Failed',
+  text: <?= json_encode($errorText) ?>,
+  confirmButtonColor: '#064d00'
+});
+</script>
+<?php endif; ?>
+
 
 
 <script>
