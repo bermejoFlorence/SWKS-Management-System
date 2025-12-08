@@ -41,11 +41,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit;
     }
 
-    // Student ID: presence + length (5–30) + simple format
-    if ($student_id === '' || strlen($student_id) < 5 || strlen($student_id) > 30) {
-        echo "<script>alert('Please enter a valid Student ID (5–30 characters, digits and dashes only).'); window.history.back();</script>";
-        exit;
-    }
+// optional: para makabalik ka sa edit mode kung galing sa edit
+$backId = '';
+if (isset($_POST['member_id']) && $_POST['member_id'] !== '') {
+    $backId = '&id=' . (int)$_POST['member_id'];
+}
+
+// Student ID: presence + length (5–30) + simple format
+if ($student_id === '' || strlen($student_id) < 5 || strlen($student_id) > 30) {
+    $msg = 'Please enter a valid Student ID (5–30 characters, digits and dashes only).';
+    header('Location: membership.php?error=validation&msg=' . urlencode($msg) . $backId);
+    exit;
+}
+
 
     // Compute age from birthdate (server-side)
     $ts = strtotime($birthdate);
@@ -91,28 +99,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     // -------- Duplicate Student ID check --------
-    if (isset($_POST['member_id']) && $_POST['member_id'] !== '') {
-        // UPDATE: exclude self
-        $member_id_for_dup = (int)$_POST['member_id'];
-        $dup = $conn->prepare("SELECT member_id FROM member_details WHERE student_id = ? AND member_id <> ? LIMIT 1");
-        $dup->bind_param("si", $student_id, $member_id_for_dup);
-        $dup->execute(); $dup->store_result();
-        if ($dup->num_rows > 0) {
-            echo "<script>alert('Student ID is already in use.'); window.history.back();</script>";
-            exit;
-        }
+// -------- Duplicate Student ID check --------
+if (isset($_POST['member_id']) && $_POST['member_id'] !== '') {
+    // UPDATE: exclude self
+    $member_id_for_dup = (int)$_POST['member_id'];
+    $dup = $conn->prepare("SELECT member_id FROM member_details WHERE student_id = ? AND member_id <> ? LIMIT 1");
+    $dup->bind_param("si", $student_id, $member_id_for_dup);
+    $dup->execute(); 
+    $dup->store_result();
+    if ($dup->num_rows > 0) {
         $dup->close();
-    } else {
-        // INSERT
-        $dup = $conn->prepare("SELECT member_id FROM member_details WHERE student_id = ? LIMIT 1");
-        $dup->bind_param("s", $student_id);
-        $dup->execute(); $dup->store_result();
-        if ($dup->num_rows > 0) {
-            echo "<script>alert('Student ID is already in use.'); window.history.back();</script>";
-            exit;
-        }
-        $dup->close();
+        // balik sa edit form + SweetAlert error
+        header('Location: membership.php?error=student_id_exists&id=' . $member_id_for_dup);
+        exit;
     }
+    $dup->close();
+} else {
+    // INSERT
+    $dup = $conn->prepare("SELECT member_id FROM member_details WHERE student_id = ? LIMIT 1");
+    $dup->bind_param("s", $student_id);
+    $dup->execute(); 
+    $dup->store_result();
+    if ($dup->num_rows > 0) {
+        $dup->close();
+        // balik sa blank form + SweetAlert error
+        header('Location: membership.php?error=student_id_exists');
+        exit;
+    }
+    $dup->close();
+}
+
 
     // -------- Insert or Update --------
     if (isset($_POST['member_id']) && $_POST['member_id'] !== '') {
