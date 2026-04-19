@@ -19,17 +19,19 @@ $sql = "
     md.course,
     md.year_level,
     md.status,
-     oo.position
-    u.created_at AS joined_at
- LEFT JOIN org_officers oo 
-  ON oo.member_id = md.member_id AND oo.org_id = md.preferred_org
+    u.created_at AS joined_at,
+    oo.position
+  FROM member_details md
+  LEFT JOIN user u ON u.user_id = md.user_id
+  LEFT JOIN org_officers oo 
+    ON oo.member_id = md.member_id 
+    AND oo.org_id = md.preferred_org
   WHERE md.preferred_org = ?
     AND LOWER(TRIM(COALESCE(md.status,''))) IN ('approved','deactivated','deactivate','')
   ORDER BY
     (LOWER(TRIM(md.status))='approved') DESC,
     TRIM(COALESCE(md.full_name,'')) ASC
 ";
-
   if ($stmt = $conn->prepare($sql)) {
     $stmt->bind_param('i', $org_id);
     $stmt->execute();
