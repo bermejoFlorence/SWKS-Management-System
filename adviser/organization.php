@@ -19,9 +19,10 @@ $sql = "
     md.course,
     md.year_level,
     md.status,
+     oo.position
     u.created_at AS joined_at
-  FROM member_details md
-  LEFT JOIN `user` u ON u.user_id = md.user_id
+ LEFT JOIN org_officers oo 
+  ON oo.member_id = md.member_id AND oo.org_id = md.preferred_org
   WHERE md.preferred_org = ?
     AND LOWER(TRIM(COALESCE(md.status,''))) IN ('approved','deactivated','deactivate','')
   ORDER BY
@@ -196,7 +197,18 @@ th.col-action { width: 180px; }   /* dati 150px */
   padding:.45rem .95rem; font-weight:700; line-height:1;
 }
 .btn-pill-muted:disabled{ opacity:.9; cursor:not-allowed; }
+.badge-officer {
+  display: inline-block;
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 700;
+  margin-left: .35rem;
 
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
   </style>
 </head>
 <body>
@@ -266,11 +278,18 @@ th.col-action { width: 180px; }   /* dati 150px */
       <!-- Name + status badge -->
       <td>
         <a class="name-link" href="member_view.php?id=<?= (int)$m['member_id'] ?>">
-          <?= htmlspecialchars($m['full_name'] ?: '—') ?>
-        </a>
-        <span class="badge-status <?= $statusNorm === 'approved' ? 'approved' : 'deactivated' ?>">
-          <?= $statusText ?>
-        </span>
+  <?= htmlspecialchars($m['full_name'] ?: '—') ?>
+</a>
+
+<span class="badge-status <?= $statusNorm === 'approved' ? 'approved' : 'deactivated' ?>">
+  <?= $statusText ?>
+</span>
+
+<?php if (!empty($m['position'])): ?>
+  <span class="badge badge-officer">
+    <?= htmlspecialchars($m['position']) ?>
+  </span>
+<?php endif; ?>
       </td>
 
       <td><?= htmlspecialchars($m['year_level'] ?: '—') ?></td>
