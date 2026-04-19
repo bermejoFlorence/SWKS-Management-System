@@ -279,6 +279,23 @@ th.col-action { width: 180px; }   /* dati 150px */
       <!-- Action -->
 <td class="text-center">
   <div class="d-grid gap-2">
+
+    <!-- Assign Officer -->
+    <button
+      type="button"
+      class="btn btn-pill-brand btn-assign w-100"
+      data-member-id="<?= (int)$m['member_id'] ?>"
+      data-member-name="<?= htmlspecialchars($m['full_name']) ?>"
+    >
+      <i class="bi bi-person-badge"></i><span>Assign Officer</span>
+    </button>
+
+    <!-- View Details -->
+    <a href="member_view.php?id=<?= (int)$m['member_id'] ?>" class="btn btn-pill-brand w-100">
+      <i class="bi bi-eye"></i><span>View Details</span>
+    </a>
+
+    <!-- Deactivate -->
     <?php if ($statusNorm === 'approved'): ?>
       <button
         type="button"
@@ -293,11 +310,6 @@ th.col-action { width: 180px; }   /* dati 150px */
         <i class="bi bi-slash-circle"></i><span>Deactivated</span>
       </button>
     <?php endif; ?>
-
-    <!-- View Details with icon -->
-  <a href="member_view.php?id=<?= (int)$m['member_id'] ?>" class="btn btn-pill-brand w-100">
-  <i class="bi bi-eye"></i><span>View Details</span>
-</a>
 
   </div>
 </td>
