@@ -508,6 +508,56 @@ document.addEventListener('click', async (e) => {
   const modal = new bootstrap.Modal(document.getElementById('assignOfficerModal'));
   modal.show();
 });
+
+document.getElementById('confirmAssignBtn').addEventListener('click', async () => {
+  const memberId = document.getElementById('confirmAssignBtn').getAttribute('data-member-id');
+  const position = document.getElementById('modalPosition').value;
+
+  if (!position) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Required',
+      text: 'Please select a position.'
+    });
+    return;
+  }
+
+  try {
+    const fd = new FormData();
+    fd.append('member_id', memberId);
+    fd.append('position', position);
+
+    const res = await fetch('assign_officer.php', {
+      method: 'POST',
+      body: fd
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: data.msg
+      }).then(() => {
+        location.reload(); // refresh para makita changes
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: data.msg
+      });
+    }
+
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Something went wrong.'
+    });
+  }
+});
 </script>
 </body>
 </html>
