@@ -333,7 +333,54 @@ th.col-action { width: 180px; }   /* dati 150px */
     </div>
 
   </div><!-- /.main-content -->
+<!-- Assign Officer Modal -->
+<div class="modal fade" id="assignOfficerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
 
+      <!-- Header -->
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title w-100 text-center fw-bold" id="modalOrgName">
+          <?= htmlspecialchars($orgName) ?>
+        </h5>
+        <button type="button" class="btn-close position-absolute end-0 me-3" data-bs-dismiss="modal"></button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body pt-2">
+
+        <!-- Student Name -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Student Name</label>
+          <input type="text" id="modalStudentName" class="form-control" readonly>
+        </div>
+
+        <!-- Position Dropdown -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Select Position</label>
+          <select id="modalPosition" class="form-select">
+            <option value="">-- Select Position --</option>
+            <option value="President">President</option>
+            <option value="Vice President">Vice President</option>
+            <option value="Secretary">Secretary</option>
+            <option value="Auditor">Auditor</option>
+            <option value="P.I.O">P.I.O</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-pill-brand" id="confirmAssignBtn">
+          <i class="bi bi-check-circle"></i> Assign
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
   <script>
     // Sidebar toggle for mobile
     function toggleSidebar(){ document.getElementById('sidebar')?.classList.toggle('show'); }
@@ -445,6 +492,22 @@ document.addEventListener('click', async (e) => {
   applyFilters();
 })();
 </script>
+<script>
+  document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-assign');
+  if (!btn) return;
 
+  const memberName = btn.getAttribute('data-member-name');
+  const memberId   = btn.getAttribute('data-member-id');
+
+  // Set values sa modal
+  document.getElementById('modalStudentName').value = memberName;
+  document.getElementById('confirmAssignBtn').setAttribute('data-member-id', memberId);
+
+  // Show modal
+  const modal = new bootstrap.Modal(document.getElementById('assignOfficerModal'));
+  modal.show();
+});
+</script>
 </body>
 </html>
