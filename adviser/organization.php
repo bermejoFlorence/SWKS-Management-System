@@ -1,3 +1,5 @@
+
+<!-- private -->
 <?php
 include_once 'includes/auth_adviser.php';
 include_once '../database/db_connection.php';
